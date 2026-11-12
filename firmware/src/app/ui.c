@@ -5898,6 +5898,9 @@ static void speak_dump(void)
 }
 #endif
 
+static void de_frame(void);                      /* (dubengine's panel, de_ui.c: while DUB-1's generative layers are off) */
+static void de_input(void);
+static void de_init(void);
 void ui_init(void)
 {
     memset(&ui, 0, sizeof ui);
@@ -5908,6 +5911,7 @@ void ui_init(void)
         en_play(1);                              /* it plays from the start */
     sp_tp.playing = 1;
     sp_tp.play_t = plat_ms();
+    de_init();
 }
 
 /* (1.4.0, the user's) Set: a song over, the next piece from its intro as the tails die (6 s on); after the last
@@ -5967,6 +5971,10 @@ static void set_tick(void)
 
 void ui_frame(void)
 {
+    if (!en_gen_on) {
+        de_frame();
+        return;
+    }
     if (en_queue_drops() != ui.q_drops && !en_queue_left()) {   /* (1.4.1: PRESETS spun fast filled the engine's queue
                                                   * and the piece arrived at lost its last commands, playing with
                                                   * the ones it passed through: all of it again, now there's room) */
@@ -5996,7 +6004,13 @@ void ui_frame(void)
     ui.frame++;
 }
 
-void ui_input_only(void) { input(); }
+void ui_input_only(void)
+{
+    if (!en_gen_on)
+        de_input();
+    else
+        input();
+}
 
 /* the launch screen, while the FM-1 starts, as a delay throw: the name struck (a ring spreads from it),
  * then, every four frames as an echo's time, a repeat thrown out of it to its place along the line, each
@@ -6046,3 +6060,5 @@ void ui_splash(int f)
     splash_band(f, 0);
     splash_band(f, 120);
 }
+
+#include "de_ui.c"                               /* (dubengine's panel) */

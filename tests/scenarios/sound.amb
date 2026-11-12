@@ -1,4 +1,5 @@
 # the sound pages: a layer's button again; the knobs relative to the voice (0); back; kept by the piece
+gen 1   # (dubengine) DUB-1's generative layers and its own panel, as this scenario tests them
 listen
 wait 3000
 tap ENV

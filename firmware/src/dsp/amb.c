@@ -722,7 +722,7 @@ volatile uint32_t en_prof[EN_PROF_N];
 #endif
 
 /* ------------------------------------------------------------ commands --- */
-enum { C_SET, C_POOL, C_PLAY, C_NEXT, C_FREEZE, C_SEED, C_PANIC, C_CLOCK, C_REGROW, C_MUTE, C_PERF, C_FX, C_PINGS, C_MACRO, C_PROT, C_REWALK, C_PNUDGE, C_LOCK, C_OUTRO, C_SIREN, C_SIRSET, C_TRANS, C_KEY, C_VOICING };
+enum { C_SET, C_POOL, C_PLAY, C_NEXT, C_FREEZE, C_SEED, C_PANIC, C_CLOCK, C_REGROW, C_MUTE, C_PERF, C_FX, C_PINGS, C_MACRO, C_PROT, C_REWALK, C_PNUDGE, C_LOCK, C_OUTRO, C_SIREN, C_SIRSET, C_TRANS, C_KEY, C_VOICING, C_SEQ, C_STEP };
 #define QN 512u                                 /* (a piece is every parameter at once: room for twice over and more) */
 _Static_assert(QN >= 2u * (P_NPARAMS + 8), "the command queue can't hold a piece's parameters twice over");
 static uint32_t q[QN];
@@ -745,6 +745,19 @@ void en_pool(uint32_t pool) { post(C_POOL, 0, (int)(pool & 0xFFFu)); }
 void en_play(int on) { post(C_PLAY, on, 0); }
 void en_key_chord(int note, int on) { post(C_KEY, on != 0, note & 0x7F); }
 void en_voicing_set(int v) { post(C_VOICING, v, 0); }
+enum { SQ_PLAY, SQ_REC, SQ_LEN, SQ_DIV, SQ_CLEAR, SQ_RESTORE, SQ_METRO };
+void en_seq_play(int on) { post(C_SEQ, SQ_PLAY, on != 0); }
+void en_seq_record(int on) { post(C_SEQ, SQ_REC, on != 0); }
+void en_seq_length(int steps) { post(C_SEQ, SQ_LEN, steps); }
+void en_seq_division(int div) { post(C_SEQ, SQ_DIV, div); }
+void en_seq_clear(void) { post(C_SEQ, SQ_CLEAR, 0); }
+void en_seq_restore(void) { post(C_SEQ, SQ_RESTORE, 0); }
+void en_metro(int on, int level) { post(C_SEQ, SQ_METRO, (on != 0) << 8 | (level & 0x7F)); }
+void en_seq_step(int i, const en_step_t *st)      /* packed: on, degree (3 bits), octave (2), voicing (2), length - 1 (6) */
+{
+    const int len = st->len < 1 ? 1 : st->len > EN_SEQ_MAX ? EN_SEQ_MAX : st->len;
+    post(C_STEP, i & 0x3F, (st->on != 0) | (st->deg & 7) << 1 | (st->oct & 3) << 4 | (st->voi & 3) << 6 | (len - 1) << 8);
+}
 void en_next(void) { post(C_NEXT, 0, 0); }
 void en_freeze(int on) { post(C_FREEZE, on, 0); }
 void en_seed(uint32_t s) { post(C_SEED, 0, (int)(s & 0xFFFFu)); }
@@ -1941,7 +1954,7 @@ EN_COLD static void stab_fire(float vel, int throw_it)
  * four above), voiced as asked, then the whole an octave down (keys F3..G5: the chords F2 up). The fourth voice
  * doubles the top note. A key outside the scale: none (the UI doesn't send it). */
 uint8_t en_gen_on, en_pings_on;
-volatile uint8_t en_key_note, en_key_tri[3];
+volatile uint8_t en_key_note, en_key_tri[3], en_now_pc, en_now_q, en_now_n;
 static uint8_t key_held, key_voicing = EN_VO_FIRST;
 EN_COLD static int scale_list(int *s)              /* the scale's notes, semitones above the root, low to high */
 {
@@ -1951,24 +1964,19 @@ EN_COLD static int scale_list(int *s)              /* the scale's notes, semiton
             s[m++] = i;
     return m;
 }
-EN_COLD static void key_chord(int note, int on)
+EN_COLD static int chord_voice(int note, int voicing)   /* the triad on note, voiced, struck: 0 if not in the scale */
 {
     int s[12], m = scale_list(s), rel, d, i, t[3], v[3];
-    if (!on) {
-        if (key_held && note == en_key_note)
-            key_held = 0, en_key_note = 0;
-        return;
-    }
     rel = ((note - par[P_ROOT]) % 12 + 12) % 12;
     for (d = 0; d < m && s[d] != rel; d++)
         ;
     if (d == m || m < 3)                         /* (not in the scale) */
-        return;
+        return 0;
     for (i = 0; i < 3; i++) {                    /* the degree, two above, four above: semitones above the key */
         const int k = d + 2 * i;
         t[i] = s[k % m] + 12 * (k / m) - s[d];
     }
-    switch (key_voicing) {
+    switch (voicing) {
     case EN_VO_ROOT: v[0] = t[0]; v[1] = t[1]; v[2] = t[2]; break;
     case EN_VO_SECOND: v[0] = t[2]; v[1] = t[0] + 12; v[2] = t[1] + 12; break;
     default: v[0] = t[1]; v[1] = t[2]; v[2] = t[0] + 12; break;
@@ -1978,9 +1986,227 @@ EN_COLD static void key_chord(int note, int on)
         en_key_tri[i] = stab[i].note;
     }
     stab[3].note = stab[2].note;
-    key_held = 1;
-    en_key_note = (uint8_t)note;
+    en_now_pc = (uint8_t)(((note % 12) + 12) % 12);
+    en_now_q = (uint8_t)(t[1] == 4 && t[2] == 7 ? EN_Q_MAJ : t[1] == 3 && t[2] == 7 ? EN_Q_MIN : t[1] == 3 && t[2] == 6 ? EN_Q_DIM
+                         : t[1] == 4 && t[2] == 8 ? EN_Q_AUG : EN_Q_OTHER);
+    en_now_n++;
     stab_fire(0.9f, 0);
+    return 1;
+}
+
+/* the sequencer's state (the render's): samples to the next step and to the next beat, the step held, the take */
+const char *const EN_DIV_NAME[EN_NDIV] = {"1/8", "1/16", "1/32", "1/8T", "1/16T"};
+volatile en_step_t en_seq[EN_SEQ_MAX];
+static en_step_t seq_kept[EN_SEQ_MAX];             /* (the pattern before the last clear) */
+volatile uint8_t en_seq_len = 16, en_seq_div = EN_DIV_16, en_seq_playing, en_seq_rec, en_seq_pos, en_metro_on, en_metro_lvl = 60;
+volatile uint32_t en_seq_steps;
+static float sq_left, sq_beat_left;               /* samples to the next step, to the next beat */
+static float sq_gate;                             /* samples the step's chord is still held */
+static uint32_t sq_beat, sq_t;                    /* beats since the start; samples since the start */
+static int rec_step = -1;                         /* (recording) the step the key held is written to */
+static uint32_t rec_t0;                           /* (and when it was pressed) */
+static float ck_ph, ck_inc, ck_amp;               /* the metronome's click: a short sine */
+
+static float quarter(void) { return 60.0f * EN_SR / (float)(par[P_TEMPO] > 20 ? par[P_TEMPO] : 120); }
+static float step_samples(void)
+{
+    static const float PER_Q[EN_NDIV] = {2.0f, 4.0f, 8.0f, 3.0f, 6.0f};   /* steps a quarter */
+    return quarter() / PER_Q[en_seq_div < EN_NDIV ? en_seq_div : EN_DIV_16];
+}
+static int base_note(void) { return 60 + par[P_ROOT]; }   /* the root's octave: C4 .. B4 */
+int en_seq_note(const en_step_t *st)
+{
+    int s[12], m = scale_list(s);
+    if (!m)
+        return base_note();
+    return base_note() + s[st->deg % m] + 12 * ((int)st->oct - 2);
+}
+int en_note_step(int note, en_step_t *st)
+{
+    int s[12], m = scale_list(s), rel = note - base_note(), o, r, d;
+    o = rel >= 0 ? rel / 12 : -((11 - rel) / 12);
+    r = rel - 12 * o;
+    for (d = 0; d < m && s[d] != r; d++)
+        ;
+    if (d == m)
+        return 0;
+    if (o < -2)
+        o = -2;
+    if (o > 1)
+        o = 1;
+    st->deg = (uint8_t)d;
+    st->oct = (uint8_t)(o + 2);
+    return 1;
+}
+
+EN_COLD static void seq_write(int at, int len, const en_step_t *st)   /* a take: at its step, as long, the steps it
+                                                  * covers emptied (it replaces them) */
+{
+    int i;
+    for (i = 1; i < len && i < en_seq_len; i++)
+        en_seq[(at + i) % en_seq_len].on = 0;
+    en_seq[at].on = 1;
+    en_seq[at].deg = st->deg;
+    en_seq[at].oct = st->oct;
+    en_seq[at].voi = st->voi;
+    en_seq[at].len = (uint8_t)len;
+}
+
+EN_COLD static void key_chord(int note, int on)
+{
+    if (!on) {
+        if (key_held && note == en_key_note) {
+            key_held = 0, en_key_note = 0;
+            if (rec_step >= 0) {                 /* (a take: as long as it was held, in steps, at least one) */
+                const float st = step_samples();
+                int len = (int)((float)(sq_t - rec_t0) / st + 0.5f);
+                en_step_t t;
+                t.deg = en_seq[rec_step].deg, t.oct = en_seq[rec_step].oct, t.voi = EN_VO_KEY;
+                len = len < 1 ? 1 : len > en_seq_len ? en_seq_len : len;
+                seq_write(rec_step, len, &t);
+                rec_step = -1;
+            }
+        }
+        return;
+    }
+    if (!chord_voice(note, key_voicing))
+        return;
+    key_held = 1;
+    sq_gate = 0.0f;                              /* (a key over the pattern's chord: the key's now) */
+    en_key_note = (uint8_t)note;
+    if (en_seq_playing && en_seq_rec) {          /* recording: on its nearest step, as long as held */
+        en_step_t t;
+        const float st = step_samples();
+        int at = en_seq_pos;
+        if (sq_left < 0.5f * st)                 /* (past the step's middle: the next one) */
+            at = (at + 1) % en_seq_len;
+        if (en_note_step(note, &t)) {
+            t.voi = EN_VO_KEY;
+            seq_write(at, 1, &t);
+            rec_step = at;
+            rec_t0 = sq_t;
+        }
+    }
+}
+
+EN_COLD static void seq_fire(void)               /* a step begins: its chord, if it has one */
+{
+    volatile en_step_t *p = &en_seq[en_seq_pos];
+    en_seq_steps++;
+    if (!p->on || en_seq_pos == rec_step)        /* (the take's own step: the key already sounds it) */
+        return;
+    if (key_held && !en_seq_rec)                 /* (a key held, not recording: the key's chord stays) */
+        return;
+    {
+        en_step_t t;
+        t.deg = p->deg, t.oct = p->oct, t.voi = p->voi, t.len = p->len;
+        if (chord_voice(en_seq_note(&t), t.voi == EN_VO_KEY ? key_voicing : t.voi))
+            sq_gate = (float)t.len * step_samples() * 0.92f;
+    }
+}
+
+EN_COLD static void seq_cmd(int op, int v)
+{
+    int i;
+    switch (op) {
+    case SQ_PLAY:
+        if (v && !en_seq_playing) {
+            en_seq_playing = 1;
+            en_seq_pos = (uint8_t)(en_seq_len - 1);   /* (the first step fires at once: from the last, one on) */
+            sq_left = 0.0f;
+            sq_beat_left = 0.0f;
+            sq_beat = 0;
+            en_seq_steps = 0;
+        } else if (!v && en_seq_playing) {
+            en_seq_playing = 0;
+            sq_gate = 0.0f;
+            rec_step = -1;
+        }
+        break;
+    case SQ_REC:
+        en_seq_rec = (uint8_t)(v != 0);
+        if (!v)
+            rec_step = -1;
+        break;
+    case SQ_LEN:
+        en_seq_len = (uint8_t)(v < 1 ? 1 : v > EN_SEQ_MAX ? EN_SEQ_MAX : v);
+        if (en_seq_pos >= en_seq_len)
+            en_seq_pos = (uint8_t)(en_seq_len - 1);
+        break;
+    case SQ_DIV:
+        en_seq_div = (uint8_t)(v < EN_NDIV ? v : EN_DIV_16);
+        break;
+    case SQ_CLEAR:
+        for (i = 0; i < EN_SEQ_MAX; i++) {
+            seq_kept[i].on = en_seq[i].on, seq_kept[i].deg = en_seq[i].deg, seq_kept[i].oct = en_seq[i].oct;
+            seq_kept[i].voi = en_seq[i].voi, seq_kept[i].len = en_seq[i].len;
+            en_seq[i].on = 0;
+        }
+        rec_step = -1;
+        break;
+    case SQ_RESTORE:
+        for (i = 0; i < EN_SEQ_MAX; i++) {
+            en_seq[i].on = seq_kept[i].on, en_seq[i].deg = seq_kept[i].deg, en_seq[i].oct = seq_kept[i].oct;
+            en_seq[i].voi = seq_kept[i].voi, en_seq[i].len = seq_kept[i].len;
+        }
+        break;
+    case SQ_METRO:
+        en_metro_on = (uint8_t)(v >> 8 & 1);
+        en_metro_lvl = (uint8_t)(v & 0x7F);
+        break;
+    }
+}
+
+static uint32_t seq_wait(void)                   /* samples to the sequencer's next event (a step, a beat) */
+{
+    float w = sq_left < sq_beat_left ? sq_left : sq_beat_left;
+    if (!en_seq_playing)
+        return 0xFFFFFFFFu;
+    return w <= 0.0f ? 0u : (uint32_t)w + 1u;
+}
+static void seq_events(void)                     /* a step or a beat due now: fire it */
+{
+    if (!en_seq_playing)
+        return;
+    if (sq_left <= 0.0f) {
+        en_seq_pos = (uint8_t)((en_seq_pos + 1u) % en_seq_len);
+        seq_fire();
+        sq_left += step_samples();
+    }
+    if (sq_beat_left <= 0.0f) {
+        if (en_metro_on) {                       /* the click: the bar's first a fifth up, louder */
+            const int one = !(sq_beat & 3u);
+            ck_inc = (one ? 1760.0f : 1320.0f) * (1.0f / EN_SR);
+            ck_ph = 0.0f;
+            ck_amp = (one ? 0.5f : 0.3f) * (float)en_metro_lvl * 0.01f;
+        }
+        sq_beat++;
+        sq_beat_left += quarter();
+    }
+}
+static void seq_advance(int32_t *out, uint32_t k, float gain)   /* k samples passed: the click into them, the clocks on */
+{
+    uint32_t j;
+    sq_t += k;
+    if (!en_seq_playing)
+        return;
+    sq_left -= (float)k;
+    sq_beat_left -= (float)k;
+    if (sq_gate > 0.0f && (sq_gate -= (float)k) <= 0.0f)
+        sq_gate = 0.0f;
+    if (ck_amp > 1e-4f) {
+        for (j = 0; j < k; j++) {
+            const float c = sine(ck_ph) * ck_amp * gain;
+            ck_ph += ck_inc;
+            if (ck_ph >= 1.0f)
+                ck_ph -= 1.0f;
+            ck_amp *= 0.9985f;                   /* (~15 ms) */
+            out[2 * j] += (int32_t)(c * 8300000.0f);
+            out[2 * j + 1] += (int32_t)(c * 8300000.0f);
+        }
+        if (ck_amp <= 1e-4f)
+            ck_amp = 0.0f;
+    }
 }
 
 /* ---------------------------------------------------------------- drums --- */
@@ -4825,6 +5051,19 @@ EN_COLD static void drain(void)
         case C_VOICING:
             key_voicing = a < EN_NVO ? a : EN_VO_FIRST;
             break;
+        case C_SEQ:
+            seq_cmd(a, b);
+            break;
+        case C_STEP:
+            if (a < EN_SEQ_MAX) {
+                volatile en_step_t *t = &en_seq[a];
+                t->on = (uint8_t)(b & 1);
+                t->deg = (uint8_t)(b >> 1 & 7);
+                t->oct = (uint8_t)(b >> 4 & 3);
+                t->voi = (uint8_t)(b >> 6 & 3);
+                t->len = (uint8_t)((b >> 8 & 63) + 1);
+            }
+            break;
         case C_TRANS:
             if (a == 0xFF) {                     /* (the app: the next piece set; from the next downbeat past the outro) */
                 if (en_tr_cue && en_playing)
@@ -5052,7 +5291,7 @@ static void render_stabs(uint32_t n)
     const float att = fm_clampf(CV[cv].att * fm_exp2f(-(xa > 0.0f ? CV_ATT_SPAN[cv] : 3.0f) * xa), 0.00004f, 0.3f),
                 fe = CV[cv].fenv * fm_maxf(1.0f + rel(P_CENV), 0.0f);
     float pc = 0.0f, ck = click;
-    const float dk = key_held ? 1.0f : st_dec + (gate_dec - st_dec) * fx_gate;   /* (dubengine: a key held, the chord
+    const float dk = key_held || sq_gate > 0.0f ? 1.0f : st_dec + (gate_dec - st_dec) * fx_gate;   /* (dubengine: a key held, the chord
                                                   * held; the grid's Gate: the chord rings on, to be chopped) */
     const fmpatch_t *pt = cv_patch(cv);
     const int alg = pt ? fm_alg_of(P_CALG, pt) : 0;
@@ -6635,6 +6874,12 @@ void en_render(int32_t *out, uint32_t n, uint32_t gain_q12)
     while (n) {
         uint32_t k = n > BLK ? BLK : n;
         int timed = en_playing && !en_ext;
+        seq_events();                            /* (dubengine: a step or a beat due: now, on its sample) */
+        {
+            const uint32_t w = seq_wait();
+            if (w < k)
+                k = w ? w : 1u;
+        }
         if (timed) {
             if (pulse_left <= 0.0f) {
                 { PROF_B(pc); clock_pulse(); PROF_E(12, pc); }
@@ -6656,6 +6901,7 @@ void en_render(int32_t *out, uint32_t n, uint32_t gain_q12)
             pulse_left -= (float)k;
         { PROF_B(pk); control(k); PROF_E(1, pk); }
         render_chunk(out, k, gain);
+        seq_advance(out, k, gain);
         drums_wait_step((int32_t)k);
         if (tick_wait > 0 && (tick_wait -= (int32_t)k) <= 0) {
             tick_wait = 0;

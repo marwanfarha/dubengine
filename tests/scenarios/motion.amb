@@ -1,4 +1,5 @@
 # dub hold, next chord, stop and rest, save and reboot
+gen 1   # (dubengine) DUB-1's generative layers and its own panel, as this scenario tests them
 wait 2000
 tap REC
 wait 50

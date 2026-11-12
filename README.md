@@ -23,11 +23,11 @@ Every chord goes through a resonant filter, a tape echo and a plate reverb.
 | --- | --- |
 | Keys play chords in the chosen key, held while pressed | Done |
 | Saves work on both FM1 flash chips | Done |
-| Metronome, pattern length, live recording | In progress |
-| Step edit and step locks | Next |
+| Metronome, pattern length, step value, live recording | Done |
+| Step edit, step locks for chord, voicing, octave, length | Done |
+| Saving patterns | Next |
 | Digitakt clock sync | Planned |
 | Randomise and Evolve | Planned |
-| Saving patterns | Planned |
 
 The full plan is in [docs/SPEC.md](docs/SPEC.md), and the controls in [docs/CONTROLS.md](docs/CONTROLS.md).
 

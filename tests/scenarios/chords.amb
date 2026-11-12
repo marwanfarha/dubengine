@@ -3,6 +3,7 @@
 # keeps its kind and type), KNOB 2 its kind (Empty: a gap), KNOB 3 its type, KNOB 4 Play: Endless or Loop (the slots
 # in turn, nothing new); ALGORITHM the walk's character (Home, Wander, Free), its chords walked again at once (yours
 # and the gaps kept). EDIT again: the Walk page (1.4.0), again back; EDIT held: the next chord; kept by the piece
+gen 1   # (dubengine) DUB-1's generative layers and its own panel, as this scenario tests them
 listen
 wait 3000
 tap EDIT

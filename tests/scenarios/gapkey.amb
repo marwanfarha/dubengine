@@ -1,6 +1,7 @@
 # (1.4.0) the Chords page: a key on a gap writes a Minor on that key's root (an F on Concrete came out a Bb: the
 # root set first read as the walk's degree, and the kind's knob wrote that degree's chord over it); each of the 12
 # keys on a gap, its root and its kind; a key on the walk's slot: its kind and type kept, the root the key's
+gen 1   # (dubengine) DUB-1's generative layers and its own panel, as this scenario tests them
 listen
 wait 3000
 tap EDIT

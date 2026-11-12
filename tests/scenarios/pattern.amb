@@ -1,5 +1,6 @@
 # the drums' Pattern page: the Drums button three times; KNOB 1 the lane, the white keys its steps, a black key
 # held: an accent; the first edit takes Auto's pattern over (Play: Pattern); kept by the piece
+gen 1   # (dubengine) DUB-1's generative layers and its own panel, as this scenario tests them
 listen
 wait 3000
 tap SEQ

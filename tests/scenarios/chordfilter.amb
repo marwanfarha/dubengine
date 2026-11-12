@@ -1,6 +1,7 @@
 # (format 36, the user's: "a page dedicated to the filter") the Chord filter page: ENV a third time (Chord, Chord voice,
 # Chord filter, Chord FM, Chord LFO, back), its knobs Cutoff, Reso, Env, Env decay (P_CCUT 139, P_CRES 38, P_CENV 39,
 # P_CEDEC 63); the Chord voice page Attack and Decay alone. Basic's own: Env -25, Env decay +31 (REPORT-stabenv)
+gen 1   # (dubengine) DUB-1's generative layers and its own panel, as this scenario tests them
 listen
 wait 3000
 tap ENV

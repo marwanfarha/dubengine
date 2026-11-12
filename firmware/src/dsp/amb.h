@@ -204,10 +204,39 @@ void en_key_chord(int note, int on);
 void en_voicing_set(int v);
 extern volatile uint8_t en_key_note;              /* (UI, tests) the key whose chord sounds, held; 0 none */
 extern volatile uint8_t en_key_tri[3];            /* (UI, tests) its notes as voiced, low to high */
+extern volatile uint8_t en_now_pc, en_now_q, en_now_n;   /* (UI) the chord last struck: its root's pitch class, its
+                                                  * quality (EN_Q_*), a count that moves with each strike */
+enum { EN_Q_MAJ, EN_Q_MIN, EN_Q_DIM, EN_Q_AUG, EN_Q_OTHER };
 /* dubengine: the generative layers. 0 (the default): the chord alone, from the keys; the pings, the bass, the drums
  * and the noise silent and DUB-1's own stabs off. Kept in the code, to come back as options (the pings first) */
 extern uint8_t en_gen_on;
 extern uint8_t en_pings_on;
+/* dubengine: the sequencer. A pattern of up to EN_SEQ_MAX steps, each one chord (or none): its degree of the scale
+ * (0..6, from the root), its octave (-2..+1 around the root's octave, C4..B4: stored +2), its voicing (EN_VO_*, or
+ * EN_VO_KEY: the global one, the Play page's) and its length in steps. The key and the mode can change under a
+ * pattern: it follows them. Its own tempo (P_TEMPO); the step a 1/8, 1/16, 1/32 or a triplet (EN_DIV_*). Recording
+ * (playing, REC on): the keys write their chords, each on its nearest step, as long as held, replacing what was there.
+ * The metronome: a click on each beat (a quarter), the bar's first louder, while the pattern plays. */
+#define EN_SEQ_MAX 64
+#define EN_VO_KEY 3
+enum { EN_DIV_8, EN_DIV_16, EN_DIV_32, EN_DIV_8T, EN_DIV_16T, EN_NDIV };
+extern const char *const EN_DIV_NAME[EN_NDIV];
+typedef struct {
+    uint8_t on, deg, oct, voi, len;
+} en_step_t;
+extern volatile en_step_t en_seq[EN_SEQ_MAX];     /* (UI) the pattern, as the engine has it */
+extern volatile uint8_t en_seq_len, en_seq_div, en_seq_playing, en_seq_rec, en_seq_pos, en_metro_on, en_metro_lvl;
+extern volatile uint32_t en_seq_steps;            /* (UI, tests) steps played since the start */
+void en_seq_play(int on);
+void en_seq_record(int on);
+void en_seq_length(int steps);                   /* 1..EN_SEQ_MAX */
+void en_seq_division(int div);                   /* EN_DIV_* */
+void en_seq_clear(void);                         /* the pattern cleared, kept to bring back */
+void en_seq_restore(void);                       /* the pattern before the last clear */
+void en_seq_step(int i, const en_step_t *st);    /* step i set (st->on 0: emptied) */
+void en_metro(int on, int level);                /* on 0/1, level 0..100 */
+int en_seq_note(const en_step_t *st);            /* a step's root as a MIDI note, in the key now */
+int en_note_step(int note, en_step_t *st);       /* a key's note as a step's degree and octave: 0 if not in the scale */
 void en_next(void);                            /* the next chord: on the next bar (now while resting) */
 void en_freeze(int on);
 void en_seed(uint32_t s);                      /* stir some entropy into the generators */

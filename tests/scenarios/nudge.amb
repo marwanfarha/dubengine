@@ -3,6 +3,7 @@
 # on, a shake (a new voice or kit, every value a big step);
 # a tap is the page, as ever. (1.4.0, format 29, the variety plan: nothing nudges by itself any more: Evolve's own
 # nudges gone with Evolve; Vary turns the patterns, not the sound)
+gen 1   # (dubengine) DUB-1's generative layers and its own panel, as this scenario tests them
 listen
 wait 2000
 press ENV

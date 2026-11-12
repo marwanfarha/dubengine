@@ -2,6 +2,7 @@
 # publishes its slots as it goes; the UI took them into whichever piece it was on by then, so a piece passed through
 # kept the last one's (the Winter Set's Snowfield held Aurora's GM7). Chamber's first four written (Fm, Gm, Am, Bbm),
 # then PRESET spun 0 -> 4 -> 0 at 5, 10 and 20 ms a click: Basic keeps its walk, Chamber its four
+gen 1   # (dubengine) DUB-1's generative layers and its own panel, as this scenario tests them
 listen
 wait 3000
 expect piece 0

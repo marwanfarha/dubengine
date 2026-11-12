@@ -1,5 +1,6 @@
 # the grid's Crash (REC held, white 10): a burst into the plate at about the music's own level, never far over it
 # (1.3.0: it was white noise 15 dB over the music)
+gen 1   # (dubengine) DUB-1's generative layers and its own panel, as this scenario tests them
 listen
 wait 6000
 peakreset

@@ -1,4 +1,5 @@
 # the effects grid: REC held shows it, the white keys play the effects while held; a tap on REC stays dub hold
+gen 1   # (dubengine) DUB-1's generative layers and its own panel, as this scenario tests them
 listen
 wait 3000
 press REC

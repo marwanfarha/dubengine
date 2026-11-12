@@ -4,6 +4,7 @@
 # a low-pass); let go, back to the page, no mute; a tap still mutes (on its release); the sends and Filters kept by the
 # piece, saved; a 1.4.0 layers' pages project (format 22) read, the strips from the
 # recipes; a 1.4.0 strips project (format 23, the drums one strip) read, the kick keeping the drums' Low cut
+gen 1   # (dubengine) DUB-1's generative layers and its own panel, as this scenario tests them
 listen
 wait 2000
 tap SEL

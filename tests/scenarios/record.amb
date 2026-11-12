@@ -1,0 +1,84 @@
+# dubengine: the metronome, live recording and step edit (docs/CONTROLS.md)
+wav record.wav
+wait 500
+tap HOME
+spin K2 -5
+expect par19 0
+spin K1 -2
+expect par18 120
+# the Pattern page: 16 steps of sixteenths
+tap SEQ
+wait 100
+expect seqlen 16
+expect seqdiv 1
+# SEL: the metronome
+tap SEL
+wait 100
+expect metro 1
+# PLAY, then REC: recording
+tap PLAY
+wait 100
+expect seqplaying 1
+expect seqrec 0
+tap REC
+wait 100
+expect seqrec 1
+wait 300
+# C4 (key 7) held about three steps, then D4 (key 9) about one
+key 7 down
+wait 375
+key 7 up
+wait 250
+key 9 down
+wait 125
+key 9 up
+wait 400
+expect seqon 2
+shot recorded.png
+# REC again: recording off, the pattern plays on
+tap REC
+wait 100
+expect seqrec 0
+expect seqplaying 1
+wait 2000
+tap PLAY
+wait 100
+expect seqplaying 0
+# stopped, REC: step edit; a white key puts the last chord (D) on its step
+tap REC
+wait 100
+expect seqon 2
+tapkey w15
+wait 100
+expect seqon 3
+expect seqdeg15 1
+# a step held and KNOB 1 turned: its chord two degrees up (F); KNOB 4: four steps long
+key w15 down
+wait 50
+spin K1 2
+spin K4 3
+wait 50
+key w15 up
+wait 100
+expect seqdeg15 3
+expect steplen15 4
+expect seqon 3
+shot stepedit.png
+# a tap on a step with a chord: off
+tapkey w15
+wait 100
+expect seqon 2
+# SEQ held: cleared; held again within 5 s: back
+press SEQ
+wait 1700
+release SEQ
+wait 100
+expect seqon 0
+press SEQ
+wait 1700
+release SEQ
+wait 100
+expect seqon 2
+tap REC
+wait 100
+wavstop

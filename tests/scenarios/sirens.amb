@@ -4,6 +4,7 @@
 # Hz), KNOB 3 Depth (semitones, the tuned ones on the key's notes), KNOB 4 Echo (the send; past 50 the feedback pushed);
 # let go: back to the Arrangement page. Each siren keeps its four (its next tap or hold from them), global, saved
 # (format 34); an older save gives the defaults (the sirens as they were)
+gen 1   # (dubengine) DUB-1's generative layers and its own panel, as this scenario tests them
 listen
 wait 3000
 tap SEL

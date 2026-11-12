@@ -1,4 +1,5 @@
 # the pieces: PRESETS picks one, each remembers its settings, SAVE held resets one, all saved
+gen 1   # (dubengine) DUB-1's generative layers and its own panel, as this scenario tests them
 wait 500
 expect piece 0
 # Basic's throws down to nothing (the Chord page: ENV) and its cutoff as bright as it goes (the Chord filter page: ENV

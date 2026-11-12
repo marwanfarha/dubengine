@@ -782,7 +782,26 @@ static int key_of(const char *s)
 static int expect(const char *what, const char *val)
 {
     int got;
-    if (!strcmp(what, "playing"))
+    if (!strcmp(what, "seqon")) {               /* (dubengine) the steps with a chord */
+        int i;
+        got = 0;
+        for (i = 0; i < en_seq_len; i++)
+            got += en_seq[i].on;
+    } else if (!strcmp(what, "seqplaying"))
+        got = en_seq_playing;
+    else if (!strcmp(what, "seqrec"))
+        got = en_seq_rec;
+    else if (!strcmp(what, "seqlen"))
+        got = en_seq_len;
+    else if (!strcmp(what, "seqdiv"))
+        got = en_seq_div;
+    else if (!strcmp(what, "metro"))
+        got = en_metro_on;
+    else if (!strncmp(what, "seqdeg", 6))       /* seqdegN: step N's degree (-1 empty) */
+        got = en_seq[atoi(what + 6) % EN_SEQ_MAX].on ? en_seq[atoi(what + 6) % EN_SEQ_MAX].deg : -1;
+    else if (!strncmp(what, "steplen", 7))      /* steplenN: step N's length */
+        got = en_seq[atoi(what + 7) % EN_SEQ_MAX].len;
+    else if (!strcmp(what, "playing"))
         got = en_playing;
     else if (!strcmp(what, "frozen"))
         got = en_frozen;

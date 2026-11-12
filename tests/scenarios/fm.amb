@@ -6,6 +6,7 @@
 # Reso, Colour), the big ring naming it, the moving knob on its page. (1.4.0, the user's: the layers' pages) the Pings FM
 # page: Algo, Ratio (the modulator's), Feedback, Upper (operators 3 and 4's); the Bass FM page: Algo, Ratio, Feedback,
 # Bite (every voice's: on Sub, not FM, the only one)
+gen 1   # (dubengine) DUB-1's generative layers and its own panel, as this scenario tests them
 listen
 wait 3000
 tap ENV

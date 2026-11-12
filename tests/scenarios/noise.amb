@@ -2,6 +2,7 @@
 # (-50..+50 around the piece's own) and Decay (how long the hits ring; the level on OCT-/OCT+, Drift the recipes'), ALGORITHM its character (Vinyl, Tape, Dust, Room, Machine); the spectrum in the middle; SAVE held nudges it,
 # held on shakes it (another character); kept by the piece; (1.4.0) on the Noise LFO page ALGORITHM the LFO's Destination; saving on GLO held and Setup's KNOB 4; a 1.2.0 project
 # (format 10) read, the noise from the recipes
+gen 1   # (dubengine) DUB-1's generative layers and its own panel, as this scenario tests them
 listen
 wait 2000
 tap SAVE

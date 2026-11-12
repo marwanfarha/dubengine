@@ -2,6 +2,7 @@
 # four clicks or more filled its queue and the piece arrived at lost its last commands, playing partly as the pieces
 # passed through while the screen showed its own (the 1.4.0 shorts' takes: Concrete's LFO at Fog's 32 bars). The UI
 # now sends the piece again once the queue has room: the engine and the screen agree
+gen 1   # (dubengine) DUB-1's generative layers and its own panel, as this scenario tests them
 listen
 wait 3000
 expect endiff 0

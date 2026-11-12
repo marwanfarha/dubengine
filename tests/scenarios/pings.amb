@@ -1,5 +1,6 @@
 # the ping loops: at Vary 0 they stay as they are, pass after pass; SAVE keeps them with the piece, so
 # they come back after a reboot and after going to another piece and back; at Vary up they move again
+gen 1   # (dubengine) DUB-1's generative layers and its own panel, as this scenario tests them
 wait 3000
 spin K2 -100
 expect par5 0

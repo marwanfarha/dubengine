@@ -1,6 +1,7 @@
 # (1.4.0) the centred knobs' notch at 0 (Off): two clicks held back, one way, within 3 s of each other (it was 700
 # ms: a slow ride, a click a second, never left Off); a stray click, or clicks 4 s apart, stay at 0; a click the
 # other way starts the count again. SELECT's DJ filter, then a strip's Filter
+gen 1   # (dubengine) DUB-1's generative layers and its own panel, as this scenario tests them
 listen
 wait 2000
 expect filter 0

@@ -3,6 +3,7 @@
 # Basic Pulse first); PLAY a song from its intro; the knobs the song's moves leave be; HOME held + PLAY the outro from
 # the next phrase, again back to the main; a song's end: PLAY off; Set: the next piece from its intro as the tails die,
 # the last piece's end: it rests
+gen 1   # (dubengine) DUB-1's generative layers and its own panel, as this scenario tests them
 listen
 wait 1500
 expect song 0

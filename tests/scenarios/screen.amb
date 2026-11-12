@@ -1,5 +1,6 @@
 # the Form page's middle: ALGORITHM goes ripples, scope, spectrum (1.4.0: then the tape; the echo trail and the
 # fifths gone, a save on one back on the ripples), ripples; it is said, and kept by SAVE
+gen 1   # (dubengine) DUB-1's generative layers and its own panel, as this scenario tests them
 wait 4000
 listen
 shot ripples.png

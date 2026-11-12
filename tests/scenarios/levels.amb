@@ -2,6 +2,7 @@
 # layers' levels on OCT- / OCT+ (a layer's page; held: on) and a part's strip (1.4.0: the Mix gone); OCT- + OCT+
 # together, quickly: a true mute (the level kept), as PERFORM's white 1-6; the new knobs (Throws, Ghost, Notes, Hats; the Noise page's
 # Level; the pings' Octave on the Pings page); a 1.3.0 ladder project (format 12) read
+gen 1   # (dubengine) DUB-1's generative layers and its own panel, as this scenario tests them
 listen
 wait 1000
 # (Basic's chord at 76, as these numbers were written for)

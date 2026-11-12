@@ -1,6 +1,6 @@
-# dubengine controls (draft v0.1)
+# dubengine controls (v0.2)
 
-How the FM1's controls work for picking a key, keeping time and recording chord patterns. Draft for review: nothing here is built yet.
+How the FM1's controls work for picking a key, keeping time and recording chord patterns. Built and tested in the emulator; saving patterns and the Digitakt's clock come next.
 
 ## The user's flow
 
@@ -31,8 +31,8 @@ The other buttons (FX, ENV, LFO, EDIT, SAVE, ARP) are left for the sound pages, 
 
 | Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
 | --- | --- | --- | --- | --- |
-| **Play** (HOME) | Tempo | Root | Mode | Voicing |
-| **Pattern** (SEQ) | Length (1 to 64 steps) | Step value (1/8, 1/16, 1/32, 1/8T, 1/16T) | Metronome level | Count in (off, 1 bar) |
+| **Play** (HOME) | Tempo | Root (wraps round) | Mode (Ionian to Aeolian; Locrian to come) | Voicing (Root, 1st, 2nd) |
+| **Pattern** (SEQ) | Length (1 to 64 steps) | Step value (1/8, 1/16, 1/32, 1/8T, 1/16T) | Metronome level | (free) |
 
 SELECT stays the DJ filter. MASTER is volume.
 
@@ -41,16 +41,17 @@ SELECT stays the DJ filter. MASTER is volume.
 * Lit keys play chords as always, and each one is written into the pattern.
 * A chord snaps to the nearest step. Its length is how long the key was held, rounded to whole steps, at least one.
 * A new chord replaces whatever was on the steps it covers (overdub replaces, it doesn't stack).
-* With the metronome on and Count in set, recording starts after one bar of clicks.
+* Recording starts the moment you press REC, since the pattern is already playing, so there's no count in.
 
 ## Step edit (stopped, REC on)
 
 * The 16 white keys are steps. Lit: a chord is on that step. The step playing blinks.
-* Tap a white key: put a chord on that step, or take it off. A new step gets the last chord you set.
+* Tap a white key: put a chord on that step, or take it off. A new step gets the last chord you set or played.
+* While stopped, the chord sounds as you press or change a step.
 * Hold a step and turn a knob to lock that step:
   * KNOB 1: chord (the scale's degrees, shown by name: Cm, D dim, Eb ...)
-  * KNOB 2: voicing (root, 1st, 2nd)
-  * KNOB 3: octave (−1, 0, +1)
+  * KNOB 2: voicing (Key: the Play page's, or Root, 1st, 2nd for this step)
+  * KNOB 3: octave (−2 to +1)
   * KNOB 4: length in steps
 * Black keys do nothing in step edit.
 * OCT− / OCT+ move between step pages when the pattern is longer than 16.
@@ -61,8 +62,14 @@ SELECT stays the DJ filter. MASTER is volume.
 * **Middle:** the chord playing, large. Under it, the pattern as a row of steps with the playhead.
 * **Footer:** the page's four knob names and values, as now.
 
-## Open questions
+## Decided
 
-1. Metronome on SEL, or somewhere else?
-2. A new step in step edit: the last chord set, or always the root chord?
-3. Live overdub: replace (as above), or keep the old chord too?
+1. Metronome on SEL (can move later).
+2. A new step gets the last chord set.
+3. Live overdub replaces.
+
+## Not yet
+
+* Saving patterns (the key and tempo are saved; the pattern isn't yet).
+* Following the Digitakt's clock.
+* Locrian, step locks for level, filter and echo send.

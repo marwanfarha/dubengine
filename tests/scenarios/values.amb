@@ -1,6 +1,7 @@
 # (1.4.0, the user's) the knobs without their numbers: a ring's number shown a moment as a page opens (the peek), then
 # gone (the ring says it; the big ring gives it while a knob turns); Setup's second page, KNOB 2, Values: Peek or
 # Always (global, saved, as Lights)
+gen 1   # (dubengine) DUB-1's generative layers and its own panel, as this scenario tests them
 listen
 wait 1500
 expect values 0

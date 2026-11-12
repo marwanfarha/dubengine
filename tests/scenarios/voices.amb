@@ -1,4 +1,5 @@
 # the voices: ALGORITHM on a layer's page steps through its voices (round); elsewhere (but the Chords page), the screen
+gen 1   # (dubengine) DUB-1's generative layers and its own panel, as this scenario tests them
 listen
 wait 3000
 tap ENV
