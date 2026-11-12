@@ -4,6 +4,8 @@ Custom firmware for the **M VAVE FM1** that turns it into a chord sequencer for 
 
 **[▶ Play it in your browser](https://marwanfarha.github.io/dubengine/)**, the same code the FM1 runs. Turn your phone sideways for bigger controls.
 
+**[Install on your FM1](https://marwanfarha.github.io/dubengine/install/)** (Chrome or Edge on a computer, FM1 plugged in by USB).
+
 ## The idea
 
 Dub techno lives on chord stabs: one shape moved around a key, thrown into a tape echo and a big reverb. dubengine makes the FM1 do exactly that, and play alongside an Elektron Digitakt II.
@@ -16,6 +18,20 @@ Dub techno lives on chord stabs: one shape moved around a key, thrown into a tap
 6. **Sync it.** It runs on its own tempo, or follows the Digitakt's clock when they're connected.
 
 Every chord comes from its own synth: two oscillators a voice (sine, triangle, saw or square), a wavefolder, a resonant filter, amp and filter envelopes, two more envelopes and two LFOs to modulate almost anything. Then a tape echo and a plate reverb.
+
+## Install on your FM1
+
+1. On a computer, open **[the installer](https://marwanfarha.github.io/dubengine/install/)** in Chrome or Edge.
+2. Plug the FM1 straight into the computer with a USB data cable. Turn it on. Close any other app that uses MIDI.
+3. Press **Install**. Allow MIDI when the browser asks.
+4. Wait about two minutes. Do not unplug or close the page. The FM1 restarts by itself.
+5. The installer checks the FM1 now reports dubengine. Done.
+
+Works from the stock firmware or DUB 1. Your saved pattern and sound live in their own flash area.
+
+**Going back:** "Back to the stock firmware" at the bottom of the installer page, or M VAVE's own updater, M UPGRADE.
+
+**If it ever won't start:** hold OCT− and OCT+ for 5 seconds at power on for update mode, then run the installer again.
 
 ## How to use it
 

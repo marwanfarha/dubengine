@@ -32,6 +32,24 @@ jobs:
         run: CLANG=clang-18 EN_VERSION="${GITHUB_SHA::7}" sh web/emu/build_clang.sh
       - name: Check it plays
         run: node tests/host/emu_test.mjs build/emu/amb.wasm
+      - name: JieLi toolchain and AC79 SDK (the real firmware)
+        run: |
+          pip install mido
+          sudo apt-get install -y -qq xz-utils
+          sh tools/get_toolchain.sh
+          git clone --depth 1 --branch AC79NN_SDK_V1.2.1_2023-12-13 https://gitee.com/Jieli-Tech/fw-AC79_AIoT_SDK.git ~/fw-AC79_AIoT_SDK
+      - name: Build the firmware release (VERSION)
+        run: AC79_SDK=$HOME/fw-AC79_AIoT_SDK ./build.sh --release "$(cat VERSION)"
+      - name: The update path, on this very package
+        run: |
+          mkdir -p build/t
+          cc -o build/t/ota_test tests/ota_test.c && build/t/ota_test build/amb.fwsc
+          head -c 100000 build/amb.bin > build/t/old_app.bin
+          python3 tools/fm1pkg_make.py build/t/old_app.bin build/loader/ota.bin build/t/old.fwsc >/dev/null
+          cc -o build/t/ldr_test tests/ldr_test.c && build/t/ldr_test build/t/old.fwsc build/amb.fwsc
+          python3 tests/install_test.py
+      - name: The installer page and the firmware, beside the emulator
+        run: python3 tools/make_install.py "build/dubengine-$(cat VERSION).fwsc" "$(cat VERSION)" build/emu
       - uses: actions/upload-pages-artifact@v3
         with:
           path: build/emu

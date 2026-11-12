@@ -371,9 +371,9 @@ def main():
         m = re.fullmatch(r"(\d{1,2})\.(\d{1,2})(?:\.(\d{1,2}))?(-[A-Za-z0-9]+)?", a.release)
         if not m:
             raise SystemExit(f"--release {a.release}: use X.Y[.Z][-suffix], up to two digits each")
-        PRODUCT = "FM-1_8%02d%02d%02d" % (int(m[1]), int(m[2]), int(m[3] or 0))
+        PRODUCT = "FM-1_5%02d%02d%02d" % (int(m[1]), int(m[2]), int(m[3] or 0))   # (dubengine: FM-1_5..., DUB 1 is FM-1_8...)
         VERSION = a.release.upper()
-        name = f"dub-{a.release}.fwsc"
+        name = f"dubengine-{a.release}.fwsc"
     fm1pkg_make.SDK = a.sdk
     for rel, sha in SDK_SHA256.items():          # fail early without the SDK
         if hashlib.sha256(fm1pkg_make.sdk_file(rel)).hexdigest() != sha:
@@ -397,6 +397,8 @@ def main():
         raise SystemExit("build: checks failed")
     pkg = fm1pkg_make.ufw(fm1pkg_make.flash_image(img, fm1pkg_make.KEY), ota, PRODUCT)
     (OUT / name).write_bytes(pkg)
+    if name != "amb.fwsc":                       # (the update-path tests read build/amb.fwsc)
+        (OUT / "amb.fwsc").write_bytes(pkg)
     print(f"app      {OUT / 'amb.bin'}  {len(img)} B")
     print(f"loader   {LDR / 'ota.bin'}  {len(ota)} B")
     print(f"package  {OUT / name}  {len(pkg)} B, identity {PRODUCT}")
