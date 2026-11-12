@@ -11,6 +11,6 @@ mkdir -p build/gen build/host
 python3 tools/gen_words.py firmware/words.tsv web/words build/gen/ann_words.h >/dev/null
 # (-D_DEFAULT_SOURCE: on Linux, glibc's -std=c99 hides POSIX's clock_gettime and popen without it; macOS ignores it)
 $CC -O2 -ffp-contract=off -std=c99 -Wall -Wextra -Wno-unused-function -Wno-unused-parameter -D_DEFAULT_SOURCE \
-    -DEN_HOST -Ifirmware/src -Ifirmware/src/dsp -Ibuild/gen -o build/host/amb_host host/amb_host.c host/stems.c \
+    -DEN_HOST -Ifirmware/src -Ifirmware/src/dsp -Ibuild/gen -o build/host/amb_host host/amb_host.c \
     firmware/src/dsp/amb.c -lm
 echo "host: build/host/amb_host"

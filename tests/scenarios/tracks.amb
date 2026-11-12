@@ -1,0 +1,69 @@
+# dubengine: two tracks. HOME on the Play page: the other track. Each its key, its pattern, its sound; saved, and
+# back after a restart
+wait 500
+expect track 0
+# track A: C Dorian, a chord on step 1
+spin K2 -5
+expect root 0
+tap REC
+tapkey w0
+tap REC
+expect seqon 1
+# HOME again: track B. Its own key: F Dorian still; root up two to G, the mode to Minor
+tap HOME
+wait 100
+expect track 1
+expect root 5
+spin K2 2
+expect root 7
+spin K3 4
+expect mode 5
+expect aroot 0
+expect amode 1
+# B's pattern: 12 steps, two chords
+tap SEQ
+spin K1 -4
+wait 100
+expect seqlen 12
+expect aseqlen 16
+tap REC
+tapkey w0
+tapkey w6
+tap REC
+expect seqon 2
+expect aseqon 1
+# B's sound: the wave a Square; A's a Saw still
+tap ENV
+spin K1 1
+expect syn0 3
+expect asyn0 2
+shot trackb.png
+# both play: A's 16 steps against B's 12
+tap PLAY
+wait 2500
+tap PLAY
+wait 200
+# HOME: the Play page; again: track A
+tap HOME
+wait 100
+expect track 1
+tap HOME
+wait 100
+expect track 0
+expect root 0
+shot tracka.png
+# quiet for 5 s: saved by itself; after a restart, both as they were
+wait 5000
+expect writes >0
+reboot
+wait 500
+expect track 0
+expect aroot 0
+expect amode 1
+expect broot 7
+expect bmode 5
+expect aseqon 1
+expect bseqon 2
+expect bseqlen 12
+expect bsyn0 3
+expect asyn0 2

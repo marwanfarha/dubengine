@@ -108,7 +108,7 @@ int main(void)
     en_syn_set(SY_CUT, 20);
     en_syn_set(SY_AS, 100);
     en_syn_set(SY_FENV, 100);
-    en_syn_set(SY_FD, 40);
+    en_syn_set(SY_FD, 60);                      /* (250 ms: open through the first 60) */
     hold(60);
     p0 = bright;
     run_ms(1500);

@@ -3,11 +3,10 @@
 wav keychords.wav
 wait 3000
 expect peak_db_max -60
-# the Play page (HOME): KNOB 2 the root (it wraps), F down five to C; the first piece is in F Dorian
-tap HOME
+# the Play page (HOME): KNOB 2 the root (it wraps), F down five to C; it starts in F Dorian
 spin K2 -5
-expect par19 0
-expect pool 0x6AD
+expect root 0
+expect mode 1
 wait 3000
 peakreset
 # C4 is key 7: Cm, held two seconds

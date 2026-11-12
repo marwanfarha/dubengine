@@ -1,11 +1,10 @@
 # dubengine: the metronome, live recording and step edit (docs/CONTROLS.md)
 wav record.wav
 wait 500
-tap HOME
 spin K2 -5
-expect par19 0
+expect root 0
 spin K1 -2
-expect par18 120
+expect tempo 120
 # the Pattern page: 16 steps of sixteenths
 tap SEQ
 wait 100
