@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Emulator · DUB-1</title>
+<title>dubengine emulator</title>
 <meta name="description" content="DUB-1, a generative dub techno firmware for the M-VAVE FM-1, in your browser: the same code the FM-1 runs.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -89,10 +89,14 @@ kbd { font: 600 .85em ui-monospace, Menlo, monospace; background: var(--card); b
 <body>
 <main>
 <header>
-  <h1><a href="../" style="color:inherit;text-decoration:none">DUB-1</a></h1>
-  <p>dub techno for the FM-1, in the browser: the same code the FM-1 runs</p>
+  <h1>dubengine <span style="opacity:.6;font-size:.6em">dev build</span></h1>
+  <p>Chord firmware for the M-VAVE FM-1, built on DUB-1: the same code the FM-1 runs.</p>
   <nav aria-label="DUB-1"><a href="../emu/" aria-current="page">Emulator</a><a href="../install/">Install</a><a href="../manual/">Manual</a><a href="https://github.com/sbegueria/fm1-dub">Source</a></nav>
 </header>
+<section class="reader" aria-labelledby="h-now" style="margin:0 0 1rem">
+  <h2 id="h-now">What works in this build</h2>
+  <p class="note" style="color:var(--ink)">Silent until you play. <b>Press a lit key</b>: it plays the chord the scale builds on that note, held while you hold it, then it rings out through the echo and the plate. Dark keys are outside the scale and do nothing. <b>Key:</b> press HOME twice from the start screen for the Key page, then KNOB 2 sets the root and KNOB 3 the mode. A MIDI keyboard plays chords too (MIDI in, below). Everything else on the panel is still DUB-1's and will change.</p>
+</section>
 
 <h2 class="sr" id="h-device">The FM-1</h2>
 <p class="turn">Turn your phone sideways for bigger controls.</p>
@@ -216,7 +220,7 @@ kbd { font: 600 .85em ui-monospace, Menlo, monospace; background: var(--card); b
   <div>
     <h2>Buttons</h2>
     <ul>
-      <li><b>Keys</b> are the scale: each one adds or removes its note. The root stays. A lit key (a pressed one, to a screen reader) is in the scale.</li>
+      <li><b>Keys</b> play chords: a lit key is in the scale and plays the triad the scale builds on it, held while you hold it. Dark keys do nothing.</li>
       <li><b>PLAY</b> plays / rests. <b>REC</b> tapped: dub hold, the echo and the cloud repeat what they hold; held: the <b>effects grid</b>, sixteen effects on the white keys (echo: Throw, Time x2, Tape stop, Swell; filter: Low-pass, High-pass, Wah, Phone; space: Verb, Crash, Freeze, Wash; rhythm: Stutter, Gate, Siren, Riser). <b>EDIT</b> a tap: the Chords page (again: the Walk page, the circle of fifths: the walk and Change); held: the next chord, on the next bar; held on: new chords. Every long press says what it did on a card in the middle.</li>
       <li><b>SELECT</b> the DJ filter, on every page (left shut, right open, Off in the middle); with <b>HOME</b> held, the tempo. <b>ALGORITHM</b> on a layer's page its voice, on the LFO pages their Target (Cutoff, Reso, Colour; Filter, Tone, Air), on the Chords page the walk (Home, Wander, Free), elsewhere the screen (ripples, scope, spectrum, tape); the mode is on the Key page (HOME a third time); <b>PRESETS</b> the piece (each remembers how you left it).</li>
       <li><b>SEL</b> the Arrangement page: the screen a desk's meters, a row a part (the chord, the pings, the bass, the kick, the hats, the noise) and the master, each its level's notch on it, a mute dark, a solo dimming the rest, the duck's gain reduction under the master (a red <b>!</b> in the header, on any page, while the master clips); the knobs <b>Width</b> (the whole mix's stereo field, mono to wide; the piece's), the second free (the dub mixer, the desk riding itself, the parts' levels and sends, the chord's filter and the echo's feedback moving slowly, off the phrase lines, is the Form page's Drift; a part ridden out and back or its echo swelled is Motion's; the notches and a held strip's knobs show the rides), <b>Wet</b> (the whole music dry, or drowned in the echo; 0 in the middle), and <b>Duck</b> (how far each beat pushes the rest down, the piece's own). The white keys 1–6, a tap, mute and bring back the chord, pings, bass, kick, hats and noise (their levels kept: the same mutes as OCT− + OCT+); held, they are a part's <b>channel strip</b> (as the meters' rows): <b>Level</b>, <b>Echo</b> send, <b>Plate</b> send (50 as the piece sends, 0 none, 100 twice; the kick's from 0) and <b>Filter</b> (before the sends, centred: left a low-pass darkening the part, right a high-pass thinning it, off in the middle), and the black keys 1–5 are the chord, pings, bass, hats with the rim and the clap (each the white key on its left) and the kick (D♯4; the noise none): a tap solos that part, held throws it into the echo, slammed in at its own level whatever its sends, the feedback climbing so the repeats stack (the chord every stab, the bass driven), its tails left to ring; white 7–8 are dark, the gap; white 9–12, held, push the filter open, shut it, drop the floor (the kick and the bass), push the echo; white 13–16, held, four of the grid's effects: Time x2, Freeze, Tape stop, Stutter; black 8–11 are four dub sirens, <b>Wail</b>, <b>Whoop</b>, <b>Hi-lo</b> and <b>Laser</b>, into the echo (a tap, a short one, about a bar; held past a third of a second, the slow one till you let go, its own page on the knobs: Pitch, Rate, Depth, Echo, kept for its next tap; Whoop out of tune on purpose, the others on the piece's key). The keys that do something are lit. A page's button leaves it: the keys are the scale again (the mutes and solos stay). Hold SEL: <b>Lock</b>, each phrase keeping the kick, the drums' and the bass's plan and the noise's groove (hold again: off).</li>
@@ -388,7 +392,7 @@ const keybed = document.createElement("div");
 keybed.className = "keybed";
 keybed.setAttribute("role", "group");
 keybed.setAttribute("aria-label", "Keys");
-keybed.setAttribute("aria-description", "Each key adds its note to the scale or takes it out; pressed: in the scale. Left and Right arrows move between them.");
+keybed.setAttribute("aria-description", "A key in the scale plays its chord while held; pressed: in the scale. Left and Right arrows move between them.");
 controls.appendChild(keybed);
 keys.forEach((k, i) => {
   const pc = (5 + i) % 12, oct = 1 + Math.floor((5 + i) / 12);
@@ -776,7 +780,7 @@ async function switchOn() {
           drawLights(m.buttons, m.keys);
           window.ambLast = m;
           if (m.said) heard(m.said);
-          if (m.load !== undefined) cpu.textContent = `DUB-1 uses ${m.load}% of this computer's time`;
+          if (m.load !== undefined) cpu.textContent = `dubengine uses ${m.load}% of this computer's time`;
           if (m.store) saveStore(m.store);
         }
       };

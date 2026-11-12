@@ -5,6 +5,7 @@
 # over it (trswell: Fog's held echo swelled 12 LU over its main). Before the fix: Concrete into Night Drive trhole 2100,
 # trlow -154; Fog into Concrete trswell 121; the outro called in Pressure's intro (the Songs sheet's take) trhole
 # 25100, its hand-over 76 s after PLAY; Pressure into Haze, Segue, trhole 3800
+gen 1   # (dubengine) DUB-1's generative layers and its keys-as-scale, as this scenario tests them
 listen
 wait 1500
 tap PLAY

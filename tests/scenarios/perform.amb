@@ -5,6 +5,7 @@
 # held four of the grid's effects (Time x2, Freeze, Tape stop, Stutter); the knobs Width, (none), Wet, Duck (the
 # Mix, white 6 held, gone: the levels the strips'); SEL again stays (one page); a page's button or SELECT gives the
 # scale back
+gen 1   # (dubengine) DUB-1's generative layers and its keys-as-scale, as this scenario tests them
 listen
 wait 3000
 expect pool 0x6AD

@@ -12,6 +12,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: DUB 1's v1.0.0 tag (the recipe prints check reads amb.c's history from it)
+        run: git fetch --no-tags https://github.com/sbegueria/fm1-dub 'refs/tags/v1.0.0:refs/tags/v1.0.0'
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'

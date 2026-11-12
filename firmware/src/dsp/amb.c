@@ -722,7 +722,7 @@ volatile uint32_t en_prof[EN_PROF_N];
 #endif
 
 /* ------------------------------------------------------------ commands --- */
-enum { C_SET, C_POOL, C_PLAY, C_NEXT, C_FREEZE, C_SEED, C_PANIC, C_CLOCK, C_REGROW, C_MUTE, C_PERF, C_FX, C_PINGS, C_MACRO, C_PROT, C_REWALK, C_PNUDGE, C_LOCK, C_OUTRO, C_SIREN, C_SIRSET, C_TRANS };
+enum { C_SET, C_POOL, C_PLAY, C_NEXT, C_FREEZE, C_SEED, C_PANIC, C_CLOCK, C_REGROW, C_MUTE, C_PERF, C_FX, C_PINGS, C_MACRO, C_PROT, C_REWALK, C_PNUDGE, C_LOCK, C_OUTRO, C_SIREN, C_SIRSET, C_TRANS, C_KEY, C_VOICING };
 #define QN 512u                                 /* (a piece is every parameter at once: room for twice over and more) */
 _Static_assert(QN >= 2u * (P_NPARAMS + 8), "the command queue can't hold a piece's parameters twice over");
 static uint32_t q[QN];
@@ -743,6 +743,8 @@ static void post(uint32_t c, int a, int b)
 void en_set(int p, int v) { post(C_SET, p, v); }
 void en_pool(uint32_t pool) { post(C_POOL, 0, (int)(pool & 0xFFFu)); }
 void en_play(int on) { post(C_PLAY, on, 0); }
+void en_key_chord(int note, int on) { post(C_KEY, on != 0, note & 0x7F); }
+void en_voicing_set(int v) { post(C_VOICING, v, 0); }
 void en_next(void) { post(C_NEXT, 0, 0); }
 void en_freeze(int on) { post(C_FREEZE, on, 0); }
 void en_seed(uint32_t s) { post(C_SEED, 0, (int)(s & 0xFFFFu)); }
@@ -1932,6 +1934,53 @@ EN_COLD static void stab_fire(float vel, int throw_it)
     }
     if (tr_arm)                                  /* (Transition: the echo held once the last stab is in its loop) */
         tr_fwait = (int32_t)(echo_len * 4.0f) + 64;   /* (the tape a quarter of the rate) */
+}
+
+/* ------------------------------------------------------------- dubengine --- */
+/* The keys play chords: a key's note is the root of the triad the scale builds on it (the scale's degrees two and
+ * four above), voiced as asked, then the whole an octave down (keys F3..G5: the chords F2 up). The fourth voice
+ * doubles the top note. A key outside the scale: none (the UI doesn't send it). */
+uint8_t en_gen_on, en_pings_on;
+volatile uint8_t en_key_note, en_key_tri[3];
+static uint8_t key_held, key_voicing = EN_VO_FIRST;
+EN_COLD static int scale_list(int *s)              /* the scale's notes, semitones above the root, low to high */
+{
+    int i, m = 0;
+    for (i = 0; i < 12; i++)
+        if (pool >> i & 1u)
+            s[m++] = i;
+    return m;
+}
+EN_COLD static void key_chord(int note, int on)
+{
+    int s[12], m = scale_list(s), rel, d, i, t[3], v[3];
+    if (!on) {
+        if (key_held && note == en_key_note)
+            key_held = 0, en_key_note = 0;
+        return;
+    }
+    rel = ((note - par[P_ROOT]) % 12 + 12) % 12;
+    for (d = 0; d < m && s[d] != rel; d++)
+        ;
+    if (d == m || m < 3)                         /* (not in the scale) */
+        return;
+    for (i = 0; i < 3; i++) {                    /* the degree, two above, four above: semitones above the key */
+        const int k = d + 2 * i;
+        t[i] = s[k % m] + 12 * (k / m) - s[d];
+    }
+    switch (key_voicing) {
+    case EN_VO_ROOT: v[0] = t[0]; v[1] = t[1]; v[2] = t[2]; break;
+    case EN_VO_SECOND: v[0] = t[2]; v[1] = t[0] + 12; v[2] = t[1] + 12; break;
+    default: v[0] = t[1]; v[1] = t[2]; v[2] = t[0] + 12; break;
+    }
+    for (i = 0; i < 3; i++) {
+        stab[i].note = (uint8_t)(note - 12 + v[i]);
+        en_key_tri[i] = stab[i].note;
+    }
+    stab[3].note = stab[2].note;
+    key_held = 1;
+    en_key_note = (uint8_t)note;
+    stab_fire(0.9f, 0);
 }
 
 /* ---------------------------------------------------------------- drums --- */
@@ -3191,7 +3240,7 @@ EN_COLD static void tick(void)
                                  frand() < fm_minf(0.12f * loose() * (sec == SEC_BREAK ? 1.5f : 1.0f) * throw_mul *
                                                    fm_minf(100.0f * lay_a[VY_CHORD] / (float)par[P_TVARY], 3.0f), 0.6f);
         float vel = st == (int)__builtin_ctz(en_stab_pat) ? 0.9f + 0.1f * frand() : 0.65f + 0.25f * frand();
-        if (!(mutes & EN_M_CHORD))
+        if (!(mutes & EN_M_CHORD) && en_gen_on)   /* (dubengine: DUB-1's own stabs only with the generative layers) */
             stab_fire(vel, thr || (perf & EN_PF_THROW) || (fxm >> EN_FX_THROW & 1u) || song_thr);
         en_stab_v[st] = (uint8_t)(fm_minf(vel, 1.0f) * 255.0f);   /* (the chord's page: as struck) */
         if (en_stab_thrown)
@@ -4770,6 +4819,12 @@ EN_COLD static void drain(void)
                 sv_tkey = 0xFFFFFFFFu;
             }
             break;
+        case C_KEY:
+            key_chord(b & 0x7F, a);
+            break;
+        case C_VOICING:
+            key_voicing = a < EN_NVO ? a : EN_VO_FIRST;
+            break;
         case C_TRANS:
             if (a == 0xFF) {                     /* (the app: the next piece set; from the next downbeat past the outro) */
                 if (en_tr_cue && en_playing)
@@ -4997,7 +5052,8 @@ static void render_stabs(uint32_t n)
     const float att = fm_clampf(CV[cv].att * fm_exp2f(-(xa > 0.0f ? CV_ATT_SPAN[cv] : 3.0f) * xa), 0.00004f, 0.3f),
                 fe = CV[cv].fenv * fm_maxf(1.0f + rel(P_CENV), 0.0f);
     float pc = 0.0f, ck = click;
-    const float dk = st_dec + (gate_dec - st_dec) * fx_gate;   /* (the grid's Gate: the chord rings on, to be chopped) */
+    const float dk = key_held ? 1.0f : st_dec + (gate_dec - st_dec) * fx_gate;   /* (dubengine: a key held, the chord
+                                                  * held; the grid's Gate: the chord rings on, to be chopped) */
     const fmpatch_t *pt = cv_patch(cv);
     const int alg = pt ? fm_alg_of(P_CALG, pt) : 0;
     const float cfb = pt ? fm_fb(P_CFB, pt) : 0.0f;
@@ -6294,11 +6350,11 @@ static void render_chunk(int32_t *out, uint32_t n, float gain)
         if (tl == 1)
             for (j = 0; j < n; j++)
                 tapb[j] = mixl[j] + mixr[j];
-        { PROF_B(p4); render_bass(n); PROF_E(4, p4); }
+        { PROF_B(p4); if (en_gen_on) render_bass(n); PROF_E(4, p4); }
         if (tl == 2)
             for (j = 0; j < n; j++)
                 tapb[j] = -(mixl[j] + mixr[j]);
-        { PROF_B(p5); render_bells(n); PROF_E(5, p5); }
+        { PROF_B(p5); if (en_pings_on) render_bells(n); PROF_E(5, p5); }
         if (mo)
             mpk[EN_MT_BASS] = mt_pk(bassb, bassb, n), mpk[EN_MT_PINGS] = mt_diff(n, 0);
         { PROF_B(p6); widen(n); PROF_E(6, p6); }                                /* (the chord's and the pings' dry, wider) */
@@ -6310,7 +6366,7 @@ static void render_chunk(int32_t *out, uint32_t n, float gain)
                 tapb[j] = -(mixl[j] + mixr[j]);
         if (mo)
             mt_snap(n);
-        { PROF_B(p7); render_drums(n); PROF_E(7, p7); }
+        { PROF_B(p7); if (en_gen_on) render_drums(n); PROF_E(7, p7); }
         if (mo)
             mpk[EN_MT_KICK] = mt_pk(kickb, kickb, n), mpk[EN_MT_HATS] = mt_diff(n, 0);   /* (1.4.0: the kick its bus, the
                                                   * hats, the rim and the clap the mix's rest) */
@@ -6320,7 +6376,7 @@ static void render_chunk(int32_t *out, uint32_t n, float gain)
         if (tl == 3)
             for (j = 0; j < n; j++)
                 tapb[j] = 2.0f * bassb[j];
-        { PROF_B(p8); render_crackle(n); PROF_E(8, p8); }
+        { PROF_B(p8); if (en_gen_on) render_crackle(n); PROF_E(8, p8); }
         if (tl == 5)
             for (j = 0; j < n; j++)
                 tapb[j] = crl[j] + crr[j];

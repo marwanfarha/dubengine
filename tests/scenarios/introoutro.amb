@@ -7,6 +7,7 @@
 # Before (this take): Haze's intro 8 bars more than 10 LU under, its first 4 -37.7 LU, the whole -2.9; its outro
 # -5.2, its last 8 bars -10.1; a Segue into Haze: the hole 3.8 s, the lowest -16.5 LU, its kick in at 155 sixteenths
 # (bar 9.7), its bass at 232 (14.5).
+gen 1   # (dubengine) DUB-1's generative layers and its keys-as-scale, as this scenario tests them
 wait 1500
 tap PLAY
 wait 1500

@@ -3,6 +3,7 @@
 # Segue: no stop, the next piece from the bar after the outro, the echo held under it; Mix: over the last phrase the
 # tempo glides to the next piece's, its pulse on the downbeat, its chord no sooner than two bars; after the last piece
 # it rests. Each hand-over watched: no stretch under -60 dBFS longer than a bar, no step out of the music's level
+gen 1   # (dubengine) DUB-1's generative layers and its keys-as-scale, as this scenario tests them
 listen
 wait 1500
 expect trans 0

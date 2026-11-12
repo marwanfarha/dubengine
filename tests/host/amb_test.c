@@ -398,6 +398,9 @@ int main(void)
     int pcs[4], n, i;
     char name[16];
 
+    en_gen_on = en_pings_on = 1;                /* (dubengine: DUB-1's generative layers, kept in the code, tested as they
+                                                 * were; dubengine plays them only when asked) */
+
     /* (format 32, the variety plan's step 4) */
     {   /* (Drone's one note: its Density the Pickups zone alone, from 30 exactly: a busy fourth or eighth bar's
          * pickup; four seeds, 90 s each; first, the engine as it boots) */

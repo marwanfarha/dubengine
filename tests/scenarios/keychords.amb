@@ -1,0 +1,37 @@
+# dubengine: silent at power-on; a key in the scale plays its chord while held, then rings out; a key outside the
+# scale is dark and does nothing
+wav keychords.wav
+wait 3000
+expect peak_db_max -60
+# the first piece is in Dorian: its root to C (HOME, HOME: the Key page; KNOB 2 to its lowest), C Dorian
+tap HOME
+wait 200
+tap HOME
+wait 200
+spin K2 -12
+expect par19 0
+expect pool 0x6AD
+tap HOME
+wait 3000
+peakreset
+# C4 is key 7: Cm, held two seconds
+key 7 down
+wait 2000
+expect peak_db_min -30
+key 7 up
+wait 8000
+shot keys_cm.png
+peakreset
+wait 2000
+expect peak_db_max -60
+# E4 (key 11) is outside C Dorian: nothing
+key 11 down
+wait 1500
+key 11 up
+expect peak_db_max -60
+# F4 (key 12): in C Dorian, F major (F A C)
+peakreset
+tapkey 12
+wait 300
+expect peak_db_min -30
+wavstop

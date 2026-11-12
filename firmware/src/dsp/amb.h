@@ -196,6 +196,18 @@ void en_init(void);
 void en_set(int param, int value);
 void en_pool(uint32_t pool);                   /* the scale, relative to the root (bit 0 always set) */
 void en_play(int on);                          /* it plays / rests (the tails ring on) */
+/* dubengine: the keys play chords. A key held (its MIDI note, F3 = 53) plays the triad the scale builds on it, held
+ * while the key is, through the chord's voice, filter, echo and plate; let go, it rings out with Decay. A key outside
+ * the scale is the UI's to ignore. The voicing: EN_VO_* */
+enum { EN_VO_ROOT, EN_VO_FIRST, EN_VO_SECOND, EN_NVO };
+void en_key_chord(int note, int on);
+void en_voicing_set(int v);
+extern volatile uint8_t en_key_note;              /* (UI, tests) the key whose chord sounds, held; 0 none */
+extern volatile uint8_t en_key_tri[3];            /* (UI, tests) its notes as voiced, low to high */
+/* dubengine: the generative layers. 0 (the default): the chord alone, from the keys; the pings, the bass, the drums
+ * and the noise silent and DUB-1's own stabs off. Kept in the code, to come back as options (the pings first) */
+extern uint8_t en_gen_on;
+extern uint8_t en_pings_on;
 void en_next(void);                            /* the next chord: on the next bar (now while resting) */
 void en_freeze(int on);
 void en_seed(uint32_t s);                      /* stir some entropy into the generators */

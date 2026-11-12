@@ -1,5 +1,6 @@
 # the screen reader (fm1-reader, announce.c): a reader listens, and each page, knob, help card, button and
 # chord change is said once, in the screen's own text (the words file says it in full)
+gen 1   # (dubengine) DUB-1's generative layers and its keys-as-scale, as this scenario tests them
 wait 200
 listen
 wait 100

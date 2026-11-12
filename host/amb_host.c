@@ -1269,6 +1269,10 @@ int main(int argc, char **argv)
         }
         if (!strcmp(cmd, "wait"))
             run_ms((uint32_t)atoi(a));
+        else if (!strcmp(cmd, "gen"))            /* (dubengine) gen 1: DUB-1's generative layers on (its own stabs,
+                                                  * the pings, the bass, the drums, the noise) and the keys the scale,
+                                                  * as DUB-1 had them: for DUB-1's own scenarios */
+            en_gen_on = en_pings_on = (uint8_t)(atoi(a) != 0);
         else if (!strcmp(cmd, "press") || !strcmp(cmd, "release") || !strcmp(cmd, "tap")) {
             int i = find_name(BTN_N, NB, a);
             if (i < 0) {

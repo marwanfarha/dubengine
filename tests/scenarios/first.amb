@@ -1,4 +1,5 @@
 # a first look and listen: it plays from power-on; the pages; half a minute of the first piece
+gen 1   # (dubengine) DUB-1's generative layers and its keys-as-scale, as this scenario tests them
 wav first.wav
 wait 200
 expect playing 1

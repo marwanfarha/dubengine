@@ -2,6 +2,7 @@
 # piece with an intro, the kick on the downbeat, the noise from it, the bass a bar on, the chord, the pings and the
 # hats two, each fader rising to full, none full at once and dipping under the ramp (as they did: 1.0 on the downbeat,
 # 0.0 two bars on, 1.0 again at four); then its main. A Segue's: the piece whole from its downbeat, as PLAY has it
+gen 1   # (dubengine) DUB-1's generative layers and its keys-as-scale, as this scenario tests them
 listen
 wait 1500
 tap GLO

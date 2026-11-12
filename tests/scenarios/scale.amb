@@ -1,4 +1,5 @@
 # the keys are the scale: toggles, the root stays, three notes at least; modes and the root
+gen 1   # (dubengine) DUB-1's generative layers and its keys-as-scale, as this scenario tests them
 wait 300
 # the first piece is in Dorian; its root to C (HOME on the Form page, the Song page, then the Key page: KNOB 2, down
 # to its lowest)

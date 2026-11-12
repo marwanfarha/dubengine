@@ -1713,7 +1713,7 @@ static void cc_in(uint32_t cc, uint32_t v)
                                                   * cancel HOME's Shake, the nudges or EDIT's held keys) */
 }
 
-/* MIDI in (USB and the TRS jack): channel 1 notes add or remove their note from the scale, its CCs turn knobs
+/* MIDI in (USB and the TRS jack): notes in the scale play their chords (dubengine), its CCs turn knobs
  * (CC_MAP); clock and start / stop drive the grid */
 static void midi_in(void)
 {
@@ -1722,8 +1722,11 @@ static void midi_in(void)
         uint32_t st = (pkt >> 8) & 0xFFu, n = (pkt >> 16) & 0x7Fu, v = pkt >> 24;
         if (st == 0xF8u || st == 0xFAu || st == 0xFBu || st == 0xFCu)
             en_clock(st == 0xF8u ? EN_CLK_TICK : st == 0xFAu ? EN_CLK_START : st == 0xFBu ? EN_CLK_CONTINUE : EN_CLK_STOP);
-        else if (st == 0x90u && v)
+        else if (en_gen_on && st == 0x90u && v)   /* (DUB-1's generative layers on: a note the scale, as it was) */
             toggle_note((int)(n % 12u));
+        else if (!en_gen_on && (st == 0x90u || st == 0x80u) && pool_abs() >> (n % 12u) & 1u)   /* (dubengine) a note in
+                                                  * the scale: its chord, as the keys play it (note off, or on at 0: let go) */
+            en_key_chord((int)n, st == 0x90u && v);
         else if (st == 0xB0u)
             cc_in(n, v & 0x7Fu);
     }
@@ -2025,8 +2028,12 @@ static void input(void)
             }
             if (ui.perf)
                 perf_key(i, (int)(keys >> i & 1u));
-            else if (keys >> i & 1u)
-                toggle_note((int)((5u + i) % 12u));   /* key 0 is F3 */
+            else if (en_gen_on) {                /* (DUB-1's generative layers on: the keys the scale, as they were) */
+                if (down)
+                    toggle_note((int)((5u + i) % 12u));   /* key 0 is F3 */
+            } else if (pool_abs() >> ((5u + i) % 12u) & 1u)   /* (dubengine) a key in the scale plays its chord, held;
+                                                             * the others (dark) do nothing. Key 0 is F3 (MIDI 53) */
+                en_key_chord(53 + (int)i, down);
         }
     if (btn || keys || ch)
         ui.act_t = plat_ms();
