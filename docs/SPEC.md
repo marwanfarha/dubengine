@@ -28,6 +28,17 @@ A chord sequencer for the FM1. You pick a key, play one key per chord, and recor
 * Clear pattern.
 * Patterns are saved to flash.
 
+## 4b. Randomise
+
+* **RANDOMISE** writes a new pattern into the sequencer, using the current key, length and step value. The result is a normal pattern: you can edit it, record over it and save it.
+* Controls that shape what it writes:
+  * **Density:** how busy the pattern is, from a few chords to a chord on most steps.
+  * **Variation:** how many different chords it uses, from staying on the root chord to using every chord in the key.
+  * **Length:** short stabs to long held chords.
+  * **Offbeat:** on the beat to pushed onto the offbeats (the classic dub chord position).
+* **Evolve:** how much the pattern changes by itself each time it loops. 0 means it stays fixed.
+* Randomise can be undone once, back to the pattern before.
+
 ## 5. Sound (kept from DUB 1)
 
 * The chord voice.
@@ -37,7 +48,7 @@ A chord sequencer for the FM1. You pick a key, play one key per chord, and recor
 
 ## 6. Removed from DUB 1
 
-* The generative chord walk and random voicing.
+* DUB 1's always on generative chord walk and random voicing (replaced by Randomise and Evolve above).
 * FM pings, sub bass, kick, shaker, hats, vinyl crackle.
 * The 8 bar arrangement cycle, breaks and fills.
 
@@ -48,7 +59,8 @@ A chord sequencer for the FM1. You pick a key, play one key per chord, and recor
 3. Key: root, mode, key lights, out of scale keys ignored.
 4. Tempo, metronome, MIDI clock in.
 5. Sequencer: length, step value, live recording, step entry, clear.
-6. Saving patterns.
+6. Randomise and Evolve.
+7. Saving patterns.
 
 Each step: tests and simulator pass, then the emulator, then the hardware.
 
