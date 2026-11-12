@@ -14,12 +14,13 @@
  *               Length) */
 
 enum { DE_PLAY, DE_PATTERN, DE_OSC, DE_FILT, DE_AENV, DE_FENV, DE_E1, DE_E2, DE_L1, DE_L2, DE_DELAY, DE_REVERB, DE_REVERB2, DE_DELAY2,
-       DE_MASTER, DE_EQ, DE_NPAGE };
+       DE_MASTER, DE_EQ, DE_RANDOM, DE_NPAGE };
 /* a page's control: a synth parameter (SY_*), a mix parameter (DE_MX + MX_*), the EQ page's band (DE_ID_BAND), a
  * track's level (DE_ID_LVL + the track) */
 #define DE_MX 2000
 #define DE_ID_BAND 3000
 #define DE_ID_LVL 4000
+#define DE_ID_RND 5000                           /* (+ 0..3: the Random page's Density, Variation, Length, Offbeat) */
 /* the sound pages: each its four knobs (a synth parameter, SY_*), and ALGORITHM's and PRESETS' (-1 none) */
 static const int16_t DE_KNOBS[DE_NPAGE][6] = {
     {0}, {0},
@@ -37,10 +38,11 @@ static const int16_t DE_KNOBS[DE_NPAGE][6] = {
     {SY_DWIDTH, SY_DBLUR, -1, -1, -1, -1},
     {DE_ID_LVL, DE_ID_LVL + 1, -1, -1, -1, -1},
     {DE_ID_BAND, -1, -1, -1, -1, -1},            /* (the band's Freq, Gain, Q: de_kid) */
+    {DE_ID_RND, DE_ID_RND + 1, DE_ID_RND + 2, DE_ID_RND + 3, -1, -1},
 };
 static const char *const DE_PAGE_NAME[DE_NPAGE] = {"PLAY", "PATTERN", "OSC", "FILTER", "AMP ENV", "FILTER ENV", "ENV 1",
                                                    "ENV 2", "LFO 1", "LFO 2", "DELAY", "REVERB", "REVERB 2", "DELAY 2",
-                                                   "MASTER", "EQ"};
+                                                   "MASTER", "EQ", "RANDOM"};
 static const uint8_t DE_ENV_CYCLE[6] = {DE_OSC, DE_FILT, DE_AENV, DE_FENV, DE_E1, DE_E2};
 static int de_sound_page(int p) { return p >= DE_OSC && p < DE_NPAGE; }
 static int de_band(void);
@@ -71,6 +73,10 @@ static struct {
     uint8_t page, edit, oct, spage;              /* page; step edit; the keys' octave (0..2: -1..+1); step page */
     uint8_t tempo, root[EN_NTRK], mode[EN_NTRK], voi[EN_NTRK];   /* the tempo; each track's key and voicing */
     uint8_t band;                                /* the EQ page's band */
+    uint8_t rnd[4];                              /* the Random page: Density, Variation, Length, Offbeat */
+    int8_t slot_key;                             /* SEQ or ENV held, a slot's key down: which (0..7), -1 none */
+    uint8_t slot_snd, slot_done, slot_hint;      /* (a sound's; saved by the hold; the hint shown) */
+    uint32_t slot_t;
     float mpk[EN_NMETER], mhold[EN_NMETER];      /* the Master page's meters: now (falling), the peak held */
     uint32_t mhold_t[EN_NMETER];
     uint32_t btn, keys;
@@ -200,6 +206,7 @@ typedef struct {
     uint32_t magic;
     uint16_t ver, nsyn;                          /* (nsyn: the sound's parameters kept) */
     uint8_t tempo, metro_on, metro_lvl, sel;
+    uint8_t rnd[4];
     de_trk_save_t trk[EN_NTRK];
 } de_save_t;
 _Static_assert(sizeof(de_save_t) <= PLAT_STORE_MAX, "the save fits its flash object");
@@ -212,6 +219,8 @@ static void de_gather(de_save_t *v)
     memset(v, 0, sizeof *v);
     v->magic = DE_SAVE_MAGIC, v->ver = DE_SAVE_VER, v->nsyn = SY_N;
     v->tempo = de.tempo, v->metro_on = en_metro_on, v->metro_lvl = en_metro_lvl, v->sel = en_sel;
+    for (i = 0; i < 4; i++)
+        v->rnd[i] = de.rnd[i];
     for (t = 0; t < EN_NTRK; t++) {
         de_trk_save_t *k = &v->trk[t];
         k->len = en_trk[t].seq_len, k->div = en_trk[t].seq_div, k->voicing = de.voi[t], k->root = de.root[t], k->mode = de.mode[t];
@@ -260,6 +269,8 @@ static void de_load(void)                         /* the last save, to the engin
     if (n == (int)sizeof de_sv && de_sv.magic == DE_SAVE_MAGIC && de_sv.ver == DE_SAVE_VER && de_sv.nsyn <= SY_N) {
         de.tempo = (uint8_t)(de_sv.tempo < EN_TEMPO_MIN ? EN_TEMPO_MIN : de_sv.tempo > EN_TEMPO_MAX ? EN_TEMPO_MAX : de_sv.tempo);
         en_metro(de_sv.metro_on, de_sv.metro_lvl);
+        for (i = 0; i < 4; i++)
+            de.rnd[i] = (uint8_t)(de_sv.rnd[i] <= 100 ? de_sv.rnd[i] : 50);
         for (t = 0; t < EN_NTRK; t++) {
             const de_trk_save_t *k = &de_sv.trk[t];
             de.root[t] = (uint8_t)(k->root % 12u);
@@ -290,6 +301,12 @@ static void de_load(void)                         /* the last save, to the engin
         de_key_send(t);
 }
 
+static void de_slots_load(void);
+static void de_roll_pattern(void);
+static void de_pat_undo(void);
+static void de_roll_sound(int full);
+static void de_roll_fx(void);
+static void de_sound_undo(void);
 static void de_init(void)
 {
     int i;
@@ -299,11 +316,14 @@ static void de_init(void)
     de.oct = 1;
     de.step = -1;
     de.tempo = 122;
+    de.slot_key = -1;
+    de.rnd[0] = 40, de.rnd[1] = 40, de.rnd[2] = 30, de.rnd[3] = 70;
     for (i = 0; i < EN_NTRK; i++)
         de.root[i] = 5, de.mode[i] = MODE_DORIAN, de.voi[i] = EN_VO_FIRST;   /* (F Dorian, first inversions) */
     de.last.on = 1, de.last.deg = 0, de.last.oct = 2, de.last.voi = EN_VO_KEY, de.last.len = 1;
     en_sel = 0;
     en_metro(0, 60);
+    de_slots_load();
     de_load();
     de_saved_sum = 0;                            /* (compared once the engine has it all: de_autosave) */
 }
@@ -362,6 +382,13 @@ static void de_button(int b)                    /* a press */
     case B_LFO:
         de.page = de.page == DE_L1 ? DE_L2 : DE_L1;
         break;
+    case B_EDIT:                                 /* (a tap) the Random page; there: a new pattern */
+        if (de.page == DE_RANDOM)
+            de_roll_pattern();
+        de.page = DE_RANDOM;
+        break;
+    case B_SAVE: de_roll_sound(0); break;        /* (a tap) the sound nudged */
+    case B_ARP: de_roll_fx(); break;             /* (a tap) the track's delay and its send, new */
     case B_GLO:                                  /* (a tap) Master, track A's EQ, track B's EQ, in turn */
         if (de.page == DE_MASTER) {
             de_track(0);
@@ -409,6 +436,15 @@ static void de_hold(int b, uint32_t ms)          /* held this long: SEQ clears (
             de.cleared_t = now;
             de_say("CLEARED");
         }
+    } else if (b == B_EDIT && ms >= DE_SAVE_MS) {
+        de.held_done[b] = 1;
+        de_pat_undo();
+    } else if (b == B_SAVE && ms >= DE_SAVE_MS) {
+        de.held_done[b] = 1;
+        de_roll_sound(1);
+    } else if (b == B_ARP && ms >= DE_SAVE_MS) {
+        de.held_done[b] = 1;
+        de_sound_undo();
     } else if (b == B_GLO && ms >= DE_SAVE_MS) {
         de.held_done[b] = 1;
         de_say(de_save() == 0 ? "SAVED" : "SAVE FAILED");
@@ -436,8 +472,385 @@ static void de_step_get(int i, en_step_t *t)
     t->on = en_seq[i].on, t->deg = en_seq[i].deg, t->oct = en_seq[i].oct, t->voi = en_seq[i].voi, t->len = en_seq[i].len;
     t->lock[0] = en_seq[i].lock[0], t->lock[1] = en_seq[i].lock[1], t->lock[2] = en_seq[i].lock[2];
 }
+/* ------------------------------------------------- slots, randomise --- */
+/* Eight pattern slots and eight sound slots, either track's to take or fill, kept in flash (OBJ_SLOTS). SEQ held, one of
+ * the first eight white keys: tapped, the slot's pattern to the selected track; held, the track's pattern to the slot.
+ * ENV held: the same with the sound (the synth, the delay, the plate's send, the EQ; not the level, not the plate). */
+#define DE_NSLOT 8
+#define DE_SLOT_MAGIC 0x544C5344u                /* "DSLT" */
+#define DE_SLOT_VER 1u
+#define DE_SLOT_HOLD 800u                        /* a slot's key held: saved */
+typedef struct {
+    uint8_t used, len, div, rsv;
+    uint8_t step[EN_SEQ_MAX][5];                 /* on | degree << 1 | octave << 4 | voicing << 6; length; its three locks */
+} de_pslot_t;
+typedef struct {
+    uint8_t used, rsv[3];
+    int8_t syn[SY_N], mx[MX_N];
+} de_sslot_t;
+typedef struct {
+    uint32_t magic;
+    uint16_t ver, nsyn;
+    de_pslot_t pat[DE_NSLOT];
+    de_sslot_t snd[DE_NSLOT];
+} de_slots_t;
+_Static_assert(sizeof(de_slots_t) <= PLAT_STORE_MAX, "the slots fit their flash object");
+static de_slots_t de_slots;
+/* (one step back: the pattern before the last roll or slot taken, the sound before the last roll, nudge or slot) */
+static struct {
+    uint8_t ok, trk, len, div;
+    en_step_t st[EN_SEQ_MAX];
+} de_pundo;
+static struct {
+    uint8_t ok, trk;
+    int16_t syn[SY_N], mx[MX_N];
+} de_sundo;
+static uint32_t de_rng;
+
+static void de_slots_load(void)
+{
+    const int n = plat_store_load(OBJ_SLOTS, &de_slots, sizeof de_slots);
+    if (n != (int)sizeof de_slots || de_slots.magic != DE_SLOT_MAGIC || de_slots.ver != DE_SLOT_VER || de_slots.nsyn != SY_N) {
+        memset(&de_slots, 0, sizeof de_slots);   /* (nothing kept, or another firmware's: empty) */
+        de_slots.magic = DE_SLOT_MAGIC, de_slots.ver = DE_SLOT_VER, de_slots.nsyn = SY_N;
+    }
+    de_pundo.ok = de_sundo.ok = 0;
+}
+static int de_syn_shared(int p) { return p >= SY_RDECAY && p <= SY_RFREEZE && p != SY_RMIX; }   /* the plate's own */
+static void de_pat_keep(void)                    /* the selected track's pattern, kept for the undo */
+{
+    int i;
+    de_pundo.ok = 1, de_pundo.trk = en_sel, de_pundo.len = en_seq_len, de_pundo.div = en_seq_div;
+    for (i = 0; i < EN_SEQ_MAX; i++)
+        de_step_get(i, &de_pundo.st[i]);
+}
+static void de_pat_put(int len, int div, const en_step_t *st)   /* a whole pattern to the selected track */
+{
+    int i, j;
+    len = len < 1 ? 1 : len > EN_SEQ_MAX ? EN_SEQ_MAX : len;
+    en_seq_length(len);
+    en_seq_len = (uint8_t)len;
+    en_seq_division(div);
+    en_seq_div = (uint8_t)(div < EN_NDIV ? div : EN_DIV_16);
+    for (i = 0; i < EN_SEQ_MAX; i++) {
+        en_step_t t, was;
+        de_step_get(i, &was);
+        t = st[i];
+        if (!t.on && !was.on)
+            continue;
+        t.len = (uint8_t)(t.len < 1 ? 1 : t.len);
+        de_step_set(i, &t);
+        for (j = 0; j < EN_NLK; j++)
+            if (t.on && (t.lock[j] || was.lock[j])) {
+                en_seq_lock(i, j, (int)t.lock[j] - 1);
+                en_seq[i].lock[j] = t.lock[j];
+            }
+    }
+    if (de.spage >= de_spages())
+        de.spage = 0;
+}
+static void de_pat_undo(void)
+{
+    static en_step_t now_st[EN_SEQ_MAX];
+    int i, len, div;
+    if (!de_pundo.ok || de_pundo.trk != en_sel) {
+        de_say("NOTHING TO UNDO");
+        return;
+    }
+    len = en_seq_len, div = en_seq_div;          /* (the undo undone: the two swapped) */
+    for (i = 0; i < EN_SEQ_MAX; i++)
+        de_step_get(i, &now_st[i]);
+    de_pat_put(de_pundo.len, de_pundo.div, de_pundo.st);
+    de_pundo.len = (uint8_t)len, de_pundo.div = (uint8_t)div;
+    for (i = 0; i < EN_SEQ_MAX; i++)
+        de_pundo.st[i] = now_st[i];
+    de_say("PATTERN BACK");
+}
+static void de_snd_keep(void)
+{
+    int i;
+    de_sundo.ok = 1, de_sundo.trk = en_sel;
+    for (i = 0; i < SY_N; i++)
+        de_sundo.syn[i] = en_syn[i];
+    for (i = 0; i < MX_N; i++)
+        de_sundo.mx[i] = en_mx[i];
+}
+static void de_syn_put(int p, int v)             /* a synth parameter, here and to the engine (clamped to its range) */
+{
+    v = v < SYN_INFO[p].lo ? SYN_INFO[p].lo : v > SYN_INFO[p].hi ? SYN_INFO[p].hi : v;
+    if (en_syn[p] == v)
+        return;
+    en_syn_set(p, v);
+    en_syn[p] = (int16_t)v;
+}
+static void de_mx_put(int p, int v)
+{
+    if (en_mx[p] == v)
+        return;
+    en_mix_set(p, v);
+    en_mx[p] = (int16_t)v;
+}
+static void de_sound_undo(void)
+{
+    int i;
+    if (!de_sundo.ok || de_sundo.trk != en_sel) {
+        de_say("NOTHING TO UNDO");
+        return;
+    }
+    for (i = 0; i < SY_N; i++) {
+        const int was = en_syn[i];
+        if (de_syn_shared(i))
+            continue;
+        de_syn_put(i, de_sundo.syn[i]);
+        de_sundo.syn[i] = (int16_t)was;
+    }
+    for (i = MX_EQ; i < MX_N; i++) {
+        const int was = en_mx[i];
+        de_mx_put(i, de_sundo.mx[i]);
+        de_sundo.mx[i] = (int16_t)was;
+    }
+    de_say("SOUND BACK");
+}
+static void de_slot_msg(const char *a, int snd, int k)   /* "LOADED P3", "SAVED S1", "P4 EMPTY" */
+{
+    char b[24];
+    b[0] = 0;
+    de_cat(b, a);
+    de_cat(b, snd ? "S" : "P");
+    de_num(b + de_len(b), k + 1);
+    de_say(b);
+}
+static void de_slot_save(int snd, int k)
+{
+    int i;
+    if (snd) {
+        de_sslot_t *q = &de_slots.snd[k];
+        q->used = 1;
+        for (i = 0; i < SY_N; i++)
+            q->syn[i] = (int8_t)en_syn[i];
+        for (i = 0; i < MX_N; i++)
+            q->mx[i] = (int8_t)en_mx[i];
+    } else {
+        de_pslot_t *q = &de_slots.pat[k];
+        q->used = 1, q->len = en_seq_len, q->div = en_seq_div;
+        for (i = 0; i < EN_SEQ_MAX; i++) {
+            en_step_t t;
+            de_step_get(i, &t);
+            q->step[i][0] = (uint8_t)((t.on != 0) | (t.deg & 7) << 1 | (t.oct & 3) << 4 | (t.voi & 3) << 6);
+            q->step[i][1] = t.len, q->step[i][2] = t.lock[0], q->step[i][3] = t.lock[1], q->step[i][4] = t.lock[2];
+        }
+    }
+    if (plat_store_save(OBJ_SLOTS, &de_slots, sizeof de_slots) == 0)
+        de_slot_msg("SAVED ", snd, k);
+    else
+        de_say("SAVE FAILED");
+}
+static void de_slot_take(int snd, int k)
+{
+    static en_step_t st[EN_SEQ_MAX];
+    int i;
+    if (snd ? !de_slots.snd[k].used : !de_slots.pat[k].used) {
+        de_slot_msg("EMPTY ", snd, k);
+        return;
+    }
+    if (snd) {
+        const de_sslot_t *q = &de_slots.snd[k];
+        de_snd_keep();
+        for (i = 0; i < SY_N; i++)
+            if (!de_syn_shared(i))
+                de_syn_put(i, q->syn[i]);
+        for (i = MX_EQ; i < MX_N; i++)
+            de_mx_put(i, q->mx[i]);
+    } else {
+        const de_pslot_t *q = &de_slots.pat[k];
+        de_pat_keep();
+        for (i = 0; i < EN_SEQ_MAX; i++) {
+            const uint8_t b = q->step[i][0];
+            st[i].on = b & 1u, st[i].deg = (b >> 1) & 7u, st[i].oct = (b >> 4) & 3u, st[i].voi = (b >> 6) & 3u;
+            st[i].len = q->step[i][1], st[i].lock[0] = q->step[i][2], st[i].lock[1] = q->step[i][3], st[i].lock[2] = q->step[i][4];
+        }
+        de_pat_put(q->len, q->div, st);
+    }
+    de_slot_msg("LOADED ", snd, k);
+}
+static int de_slot_key(int key, int down)        /* SEQ or ENV held: a key is a slot's (1: taken here) */
+{
+    const int snd = (de.btn >> B_ENV & 1u) && !(de.btn >> B_SEQ & 1u);
+    int i, k = -1;
+    if (!(de.btn & (1u << B_SEQ | 1u << B_ENV))) {
+        if (!down && de.slot_key >= 0 && DE_WHITE[de.slot_key] == key) {   /* (the button let go first) */
+            de.slot_key = -1;
+            return 1;
+        }
+        return 0;
+    }
+    for (i = 0; i < DE_NSLOT; i++)
+        if (DE_WHITE[i] == key)
+            k = i;
+    de.held_done[B_SEQ] = de.held_done[B_ENV] = 1;   /* (the button a modifier now: no page, no clear) */
+    if (k < 0)
+        return 1;
+    if (down) {
+        de.slot_key = (int8_t)k, de.slot_snd = (uint8_t)snd, de.slot_done = 0, de.slot_t = plat_ms();
+    } else if (de.slot_key == k) {
+        if (!de.slot_done)
+            de_slot_take(de.slot_snd, k);
+        de.slot_key = -1;
+    }
+    return 1;
+}
+static void de_slot_tick(uint32_t now)           /* a slot's key held: saved; SEQ or ENV held a moment: what the keys do */
+{
+    const uint32_t mod = de.btn & (1u << B_SEQ | 1u << B_ENV);
+    if (de.slot_key >= 0 && !de.slot_done && mod && now - de.slot_t >= DE_SLOT_HOLD) {
+        de.slot_done = 1;
+        de_slot_save(de.slot_snd, de.slot_key);
+    }
+    if (!mod) {
+        de.slot_hint = 0;
+    } else if (!de.slot_hint && de.slot_key < 0 &&
+               now - de.down_t[de.btn >> B_SEQ & 1u ? B_SEQ : B_ENV] >= 350u && !de.held_done[B_SEQ] && !de.held_done[B_ENV]) {
+        de.slot_hint = 1;
+        de_say(de.btn >> B_SEQ & 1u ? "KEYS 1-8 PATTERN SLOTS" : "KEYS 1-8 SOUND SLOTS");
+    }
+}
+
+/* Randomise, once, by hand: nothing moves by itself. Each roll can be undone (one step back).
+ *   the pattern (EDIT on the Random page): the selected track's steps afresh, in its key. Density: how many chords;
+ *     Variation: how many different chords of the scale; Length: how long they are held; Offbeat: off the beat, as
+ *     dub chords sit, or on it.
+ *   the sound (SAVE): a tap nudges every knob of the synth a little; held, a new sound, within ranges that suit dub
+ *     chords.
+ *   the effects (ARP): the track's delay and its send to the plate, new. The plate is both tracks': left as it is. */
+static uint32_t de_rand(void)
+{
+    if (!de_rng)
+        de_rng = 0x9E3779B9u;
+    de_rng ^= plat_ms() * 2654435761u;           /* (when it's asked: no two rolls alike) */
+    de_rng ^= de_rng << 13;
+    de_rng ^= de_rng >> 17;
+    de_rng ^= de_rng << 5;
+    return de_rng;
+}
+static int de_ri(int lo, int hi) { return hi <= lo ? lo : lo + (int)((de_rand() >> 8) % (uint32_t)(hi - lo + 1)); }   /* lo..hi */
+static void de_roll_pattern(void)
+{
+    static en_step_t st[EN_SEQ_MAX];
+    static const uint8_t ORDER[7] = {0, 3, 4, 5, 2, 6, 1};   /* the degrees, the likeliest first: i, iv, v, vi, iii, vii, ii */
+    const int n = de_nsteps(), m = de_count(de_pool()) > 0 ? de_count(de_pool()) : 1;
+    const int dens = de.rnd[0], vary = de.rnd[1], lng = de.rnd[2], off = de.rnd[3];
+    int count = 1 + dens * (n / 2 - 1) / 100, kinds = 1 + vary * (m - 1) / 100, i, c;
+    uint8_t deg[7];
+    count = count < 1 ? 1 : count > n ? n : count;
+    kinds = kinds > 7 ? 7 : kinds;
+    for (i = 0, c = 0; i < 7 && c < kinds; i++)  /* (the scale's own degrees only) */
+        if (ORDER[i] < m)
+            deg[c++] = ORDER[i];
+    kinds = c ? c : 1;
+    if (!c)
+        deg[0] = 0;
+    de_pat_keep();
+    memset(st, 0, sizeof st);
+    for (c = 0; c < count; c++) {                /* a step for each chord: drawn by weight, each step once */
+        int total = 0, pick;
+        for (i = 0; i < n; i++)
+            if (!st[i].on)
+                total += (i & 3) == 0 ? 105 - off : (i & 3) == 2 ? 15 + off : 5 + off / 2;
+        if (total <= 0)
+            break;
+        pick = de_ri(0, total - 1);
+        for (i = 0; i < n; i++) {
+            if (st[i].on)
+                continue;
+            pick -= (i & 3) == 0 ? 105 - off : (i & 3) == 2 ? 15 + off : 5 + off / 2;
+            if (pick < 0)
+                break;
+        }
+        if (i >= n)
+            break;
+        st[i].on = 1;
+        st[i].deg = deg[de_ri(0, kinds) % kinds];   /* (the first, the root, twice as likely) */
+        st[i].oct = 2, st[i].voi = EN_VO_KEY, st[i].len = 1;
+    }
+    for (i = 0; i < n; i++)                      /* each held up to the next, as far as Length lets it */
+        if (st[i].on) {
+            int gap = 1;
+            while (gap < n && !st[(i + gap) % n].on)
+                gap++;
+            st[i].len = (uint8_t)(1 + de_ri(0, (gap - 1) * lng / 100));
+        }
+    de_pat_put(n, en_seq_div, st);
+    de_say("NEW PATTERN");
+}
+/* the synth's knobs and the range a new sound draws each from */
+static const struct {
+    uint8_t id;
+    int8_t lo, hi;
+} DE_RSND[] = {
+    {SY_FOLD, 0, 30}, {SY_DETUNE, 8, 40}, {SY_LEVEL, 62, 78}, {SY_CUT, 26, 58}, {SY_RESO, 15, 60}, {SY_FENV, 10, 70},
+    {SY_KTRK, 20, 70}, {SY_AA, 0, 14}, {SY_AD, 30, 60}, {SY_AS, 0, 50}, {SY_AR, 25, 60}, {SY_FA, 0, 10}, {SY_FD, 20, 55},
+    {SY_FS, 0, 30}, {SY_FR, 20, 50}, {SY_1A, 0, 40}, {SY_1D, 30, 70}, {SY_1S, 0, 40}, {SY_1R, 30, 60}, {SY_2A, 0, 40},
+    {SY_2D, 30, 70}, {SY_2S, 0, 40}, {SY_2R, 30, 60}, {SY_L1RATE, 10, 55}, {SY_L2RATE, 8, 45},
+};
+#define DE_NRSND ((int)(sizeof DE_RSND / sizeof DE_RSND[0]))
+static void de_roll_sound(int full)
+{
+    static const uint8_t WAVE[20] = {EN_WAVE_SAW, EN_WAVE_SAW, EN_WAVE_SAW, EN_WAVE_SAW, EN_WAVE_SAW, EN_WAVE_SAW, EN_WAVE_SAW,
+                                     EN_WAVE_SAW, EN_WAVE_SAW, EN_WAVE_SQUARE, EN_WAVE_SQUARE, EN_WAVE_SQUARE, EN_WAVE_SQUARE,
+                                     EN_WAVE_SQUARE, EN_WAVE_SQUARE, EN_WAVE_SQUARE, EN_WAVE_TRI, EN_WAVE_TRI, EN_WAVE_TRI,
+                                     EN_WAVE_SINE};
+    static const uint8_t DST[6] = {EN_MD_CUTOFF, EN_MD_CUTOFF, EN_MD_RESO, EN_MD_FOLD, EN_MD_DETUNE, EN_MD_ECHO};
+    int i;
+    de_snd_keep();
+    if (!full) {                                 /* a nudge: each knob a few steps, either way */
+        for (i = 0; i < DE_NRSND; i++)
+            de_syn_put(DE_RSND[i].id, en_syn[DE_RSND[i].id] + de_ri(-6, 6));
+        for (i = 0; i < 4; i++) {                /* (the depths that are set, a little) */
+            static const uint8_t AMT[4] = {SY_1AMT, SY_2AMT, SY_L1AMT, SY_L2AMT};
+            if (en_syn[AMT[i]])
+                de_syn_put(AMT[i], en_syn[AMT[i]] + de_ri(-6, 6));
+        }
+        de_say("SOUND NUDGED");
+        return;
+    }
+    de_syn_put(SY_WAVE, WAVE[de_ri(0, 19)]);
+    for (i = 0; i < DE_NRSND; i++)
+        de_syn_put(DE_RSND[i].id, de_ri(DE_RSND[i].lo, DE_RSND[i].hi));
+    if (de_ri(0, 2))                             /* (two in three: no fold at all) */
+        de_syn_put(SY_FOLD, 0);
+    for (i = 0; i < 4; i++) {                    /* Env 1, Env 2, the LFOs: each one in two to a target, a depth */
+        static const uint8_t D[4] = {SY_1DST, SY_2DST, SY_L1DST, SY_L2DST}, A[4] = {SY_1AMT, SY_2AMT, SY_L1AMT, SY_L2AMT};
+        const int on = de_ri(0, 1);
+        de_syn_put(D[i], on ? DST[de_ri(0, 5)] : EN_MD_NONE);
+        de_syn_put(A[i], on ? (de_ri(0, 3) ? 1 : -1) * de_ri(10, 45) : 0);
+    }
+    de_syn_put(SY_L1SHAPE, de_ri(0, 3) ? de_ri(EN_LS_SINE, EN_LS_TRI) : de_ri(EN_LS_SAW, EN_LS_RANDOM));
+    de_syn_put(SY_L2SHAPE, de_ri(0, 3) ? de_ri(EN_LS_SINE, EN_LS_TRI) : de_ri(EN_LS_SAW, EN_LS_RANDOM));
+    de_syn_put(SY_L1SYNC, de_ri(0, 2) ? 0 : de_ri(1, 5));
+    de_syn_put(SY_L2SYNC, de_ri(0, 2) ? 0 : de_ri(1, 4));
+    de_say("NEW SOUND");
+}
+static void de_roll_fx(void)
+{
+    static const uint8_t TIME[8] = {3, 3, 3, 5, 5, 2, 4, 6};   /* 1/8. (the dub one) the likeliest, 1/4, 1/8, 1/4T, 1/4. */
+    de_snd_keep();
+    de_syn_put(SY_DSYNC, 1);
+    de_syn_put(SY_DTIME, TIME[de_ri(0, 7)]);
+    de_syn_put(SY_DFB, de_ri(35, 85));
+    de_syn_put(SY_DMIX, de_ri(20, 55));
+    de_syn_put(SY_DTONE, de_ri(25, 70));
+    de_syn_put(SY_DWOW, de_ri(5, 45));
+    de_syn_put(SY_DDRIVE, de_ri(0, 45));
+    de_syn_put(SY_DWIDTH, de_ri(30, 90));
+    de_syn_put(SY_DBLUR, de_ri(30, 80));
+    de_syn_put(SY_RMIX, de_ri(15, 50));
+    de_say("NEW DELAY");
+}
+
 static void de_key(int key, int down)
 {
+    if (de_slot_key(key, down))                  /* (SEQ or ENV held: a slot's key) */
+        return;
     if (de.edit) {                               /* step edit: the white keys are the steps */
         const int st = de_white(key);
         en_step_t t;
@@ -484,7 +897,7 @@ static void de_key(int key, int down)
 
 static int de_param_get(int id)                  /* a page's parameter's value now */
 {
-    return id >= DE_ID_LVL ? en_trk[(id - DE_ID_LVL) % EN_NTRK].mx[MX_LEVEL] : id == DE_ID_BAND ? de_band()
+    return id >= DE_ID_RND ? de.rnd[(id - DE_ID_RND) & 3] : id >= DE_ID_LVL ? en_trk[(id - DE_ID_LVL) % EN_NTRK].mx[MX_LEVEL] : id == DE_ID_BAND ? de_band()
            : id >= DE_MX ? en_mx[id - DE_MX] : id >= 0 ? en_syn[id] : 0;
 }
 static void de_param_range(int id, int *lo, int *hi)
@@ -506,7 +919,9 @@ static void de_param_turn(int id, int d)         /* turned d detents: a click a 
     de_param_range(id, &lo, &hi);
     v = de_param_get(id) + d * (hi - lo > 40 ? 2 : 1);
     v = v < lo ? lo : v > hi ? hi : v;
-    if (id >= DE_ID_LVL) {                       /* a track's level, whichever is selected */
+    if (id >= DE_ID_RND) {
+        de.rnd[(id - DE_ID_RND) & 3] = (uint8_t)v;
+    } else if (id >= DE_ID_LVL) {                /* a track's level, whichever is selected */
         const uint8_t was = en_sel, t = (uint8_t)((id - DE_ID_LVL) % EN_NTRK);
         en_sel = t;
         en_mix_set(MX_LEVEL, v);
@@ -525,7 +940,8 @@ static void de_param_turn(int id, int d)         /* turned d detents: a click a 
 static const char *de_param_name(int id)
 {
     static const char *const F[EQ_NF] = {"Freq", "Gain", "Q"};
-    return id >= DE_ID_LVL ? (id - DE_ID_LVL ? "Level B" : "Level A") : id == DE_ID_BAND ? "Band"
+    static const char *const R[4] = {"Density", "Variation", "Length", "Offbeat"};
+    return id >= DE_ID_RND ? R[(id - DE_ID_RND) & 3] : id >= DE_ID_LVL ? (id - DE_ID_LVL ? "Level B" : "Level A") : id == DE_ID_BAND ? "Band"
            : id >= DE_MX ? (id - DE_MX == MX_LEVEL ? "Level" : F[(id - DE_MX - MX_EQ) % EQ_NF]) : id >= 0 ? SYN_INFO[id].name : "";
 }
 static void de_hz(char *b, float hz)             /* "98", "2.0K", "12K" */
@@ -697,6 +1113,7 @@ static void midi_in(void)                        /* USB MIDI in: a note in the t
             en_key_chord((int)n, st == 0x90u && v);
     }
 }
+#define DE_ON_RELEASE (1u << B_SEQ | 1u << B_GLO | 1u << B_ENV | 1u << B_EDIT | 1u << B_SAVE | 1u << B_ARP)
 static void de_input(void)
 {
     uint32_t btn = plat_buttons(), keys = plat_keys(), ch, i;
@@ -709,15 +1126,16 @@ static void de_input(void)
             if (btn & m) {
                 de.down_t[i] = now;
                 de.held_done[i] = 0;
-                if (i != B_SEQ && i != B_GLO)    /* (SEQ and GLO act on release, or on a hold) */
+                if (!(DE_ON_RELEASE >> i & 1u))   /* (SEQ, GLO, ENV, EDIT, SAVE, ARP act on release, or on a hold) */
                     de_button((int)i);
-            } else if ((i == B_SEQ || i == B_GLO) && !de.held_done[i]) {
+            } else if ((DE_ON_RELEASE >> i & 1u) && !de.held_done[i]) {
                 de_button((int)i);
             }
         } else if (btn & m) {
             de_hold((int)i, now - de.down_t[i]);
         }
     }
+    de_slot_tick(now);
     ch = keys ^ de.keys;
     de.keys = keys;
     for (i = 0; i < NKEYS; i++)
@@ -1087,13 +1505,13 @@ static void de_pic_master(void)                  /* the meters: track A, track B
     int i;
     for (i = 0; i < 5; i++) {
         const int x = x0 + (TICK[i] + 54) * w / 60;
-        cv_rect(x, PY, 1, PH - 12, DE_GRID);
+        cv_rect(x, PY, 1, 66, DE_GRID);
         b[0] = 0;
         de_num(b, TICK[i]);
-        cv_text(x - text_w(&FONT_T_XS, b) / 2, PY + PH - 10, &FONT_T_XS, b, DE_DIM);
+        cv_text(x - text_w(&FONT_T_XS, b) / 2, PY + 68, &FONT_T_XS, b, DE_DIM);
     }
     for (i = 0; i < EN_NMETER; i++) {
-        const int y = PY + 4 + i * 26;
+        const int y = PY + 2 + i * 22;
         const float v = en_meter[i];
         float db, hd;
         en_meter[i] = 0.0f;                      /* (taken: the engine fills it again) */
@@ -1113,6 +1531,17 @@ static void de_pic_master(void)                  /* the meters: track A, track B
         if (hd > -54.0f)
             cv_rect(x0 + (int)((fm_minf(hd, 6.0f) + 54.0f) * (float)w * (1.0f / 60.0f)) - 1, y, 2, 18, DE_FG);
     }
+}
+static void de_pic_cpu(void)                     /* the audio's share of its time: the mean, the heaviest block lately */
+{
+    char b[24];
+    b[0] = 0;
+    de_cat(b, "CPU ");
+    de_num(b + de_len(b), (int)plat_cpu_pct());
+    de_cat(b, "%  PEAK ");
+    de_num(b + de_len(b), (int)plat_cpu_peak());
+    de_cat(b, "%");
+    cv_text(PX, PY + PH - 12, &FONT_T_XS, b, plat_cpu_peak() > 85u ? DE_OR : DE_DIM);
 }
 static void de_pic_eq(void)                      /* the track's EQ, 20 Hz .. 20 kHz, +-18 dB: the curve as heard, the bands */
 {
@@ -1144,6 +1573,19 @@ static void de_pic_eq(void)                      /* the track's EQ, 20 Hz .. 20 
             cv_rect(x - 1, y - 1, 3, 3, DE_DIM);
         }
     }
+}
+static void de_pic_random(void)                  /* the track's pattern as it is, small; what EDIT does here */
+{
+    const int n = de_nsteps();
+    int i;
+    for (i = 0; i < n; i++) {
+        const int r = i / 16, c = i % 16, x = PX + c * 14, y = PY + 4 + r * 14;
+        cv_rect(x, y, 12, 10, en_seq[i].on ? mix(DE_ORD, DE_OR, 8 + 8 * (int)en_seq[i].deg / 6) : (c & 3) ? DE_GRID : DE_LINE);
+        if (en_seq_playing && i == en_seq_pos)
+            cv_rect(x, y + 11, 12, 1, DE_FG);
+    }
+    cv_text(PX, PY + PH - 26, &FONT_T_XS, "EDIT  A NEW PATTERN     HELD  UNDO", DE_DIM);
+    cv_text(PX, PY + PH - 12, &FONT_T_XS, "SAVE  SOUND      ARP  DELAY", DE_DIM);
 }
 static void de_touch_text(char *lab, char *val)  /* the control last turned: its name and value (for the big readout) */
 {
@@ -1195,8 +1637,9 @@ static void de_draw_main(void)
         case DE_L1: de_pic_lfo(0); break;
         case DE_L2: de_pic_lfo(1); break;
         case DE_DELAY: case DE_DELAY2: de_pic_delay(); break;
-        case DE_MASTER: de_pic_master(); break;
+        case DE_MASTER: de_pic_master(), de_pic_cpu(); break;
         case DE_EQ: de_pic_eq(); break;
+        case DE_RANDOM: de_pic_random(); break;
         default: de_pic_reverb(); break;
         }
         /* the extra controls: ALGORITHM, PRESETS (and the Delay's SELECT), on one line */
@@ -1372,7 +1815,7 @@ static void de_leds(void)
         b |= 1u << B_REC;
     if (en_metro_on)
         b |= 1u << B_SEL;
-    b |= 1u << (de.page == DE_PLAY ? B_HOME : de.page == DE_PATTERN ? B_SEQ : de.page >= DE_MASTER ? B_GLO : de.page >= DE_DELAY ? B_FX
+    b |= 1u << (de.page == DE_PLAY ? B_HOME : de.page == DE_PATTERN ? B_SEQ : de.page == DE_RANDOM ? B_EDIT : de.page >= DE_MASTER ? B_GLO : de.page >= DE_DELAY ? B_FX
                : de.page == DE_L1 || de.page == DE_L2 ? B_LFO : B_ENV);
     if (de.edit) {                               /* the white keys: the step page's steps, the playhead blinking */
         for (i = 0; i < 16; i++) {
@@ -1388,6 +1831,12 @@ static void de_leds(void)
         for (i = 0; i < NKEYS; i++)
             if (ap >> ((5u + i) % 12u) & 1u)
                 k |= 1u << i;
+    }
+    if (de.btn & (1u << B_SEQ | 1u << B_ENV)) {  /* SEQ or ENV held: the first eight white keys, the slots with something */
+        k = 0;
+        for (i = 0; i < DE_NSLOT; i++)
+            if (de.btn >> B_SEQ & 1u ? de_slots.pat[i].used : de_slots.snd[i].used)
+                k |= 1u << DE_WHITE[i];
     }
     plat_glow(0);
     plat_play_red(en_seq_rec);

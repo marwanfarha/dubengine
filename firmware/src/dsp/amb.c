@@ -316,7 +316,7 @@ static inline float tap(const dl_t *d, int k)
 }
 static inline void push(dl_t *d, float x)
 {
-    d->b[d->i] = x;
+    d->b[d->i] = fm_flush(x);                    /* (a tail fading to nothing: no denormals left going round) */
     if (++d->i >= d->n)
         d->i = 0;
 }
@@ -430,6 +430,7 @@ typedef struct {
     } eq[EN_NEQ];
     float eqz[EN_NEQ][4];                        /* (the bands' states: left, right) */
     int tape_w, tape_ph, eap_i[5];
+    int32_t quiet;                               /* tape samples written silent in a row (past the tape's length: empty) */
     float tape_acc, tape_lp, tape_hp, p1, c1, p3, c3, len, len_t, fb, hpc, lpc, in_lp, in_hp, in_c, blur, wide, wph1,
           wph2, dk, dd;
 } tk_t;
@@ -544,6 +545,7 @@ static inline void echo_step(tk_t *T, int16_t *tp, int16_t *ap, float in, float 
         if (++T->tape_w >= TAPE_N)
             T->tape_w = 0;
         tp[T->tape_w] = s16(w);
+        T->quiet = tp[T->tape_w] ? 0 : T->quiet + 1;
         T->tape_acc = 0.0f;
         T->p1 = T->c1;
         T->p3 = T->c3;
@@ -743,8 +745,9 @@ static inline float sy_osc(int wave, float ph, float dt)
     default: return blep_saw(ph, dt);
     }
 }
-static void render_synth(int t, uint32_t n)      /* into tl, tr (the dry), es (the echo's send), rs (the plate's) */
+static int render_synth(int t, uint32_t n)       /* into tl, tr (the dry), es (the echo's send), rs (the plate's); 0: silent */
 {
+    int heard = 0;
     volatile en_trk_t *E = &en_trk[t];
     tk_t *T = &tk[t];
     uint32_t j;
@@ -812,6 +815,7 @@ static void render_synth(int t, uint32_t n)      /* into tl, tr (the dry), es (t
             T->amp_s = amp1;
             continue;
         }
+        heard = 1;
         for (u = 0; u < m; u++) {
             const uint32_t jj = j + u;
             const float am = amp0 + (amp1 - amp0) * (float)u * (1.0f / 32.0f);
@@ -854,6 +858,7 @@ static void render_synth(int t, uint32_t n)      /* into tl, tr (the dry), es (t
     T->s[2] = fm_flush(s2);
     T->s[3] = fm_flush(s3);
     E->syn_amp = T->amp_s;
+    return heard;
 }
 
 /* ------------------------------------------------ the level and the EQ --- */
@@ -1320,7 +1325,11 @@ static void render_chunk(int32_t *out, uint32_t n, float gain)
             float dk = T->dk, dd = T->dd;
             for (j = 0; j < n; j++)
                 tl[j] = tr[j] = es[j] = rs[j] = 0.0f;
-            render_synth(t, n);
+            /* (a track silent, its tape empty and its diffusers too: its echo not run. An unused track costs little) */
+            if (!render_synth(t, n) && T->quiet > TAPE_N + 4 * EAP_FB) {
+                T->gain_s = T->gain;
+                continue;
+            }
             for (j = 0; j < n; j++) {
                 float el, er, ge;
                 echo_step(T, tape[t], eap[t], es[j], &el, &er);
@@ -1348,6 +1357,8 @@ static void render_chunk(int32_t *out, uint32_t n, float gain)
                 }
                 T->gain_s = T->gain;
             }
+            T->tape_lp = fm_flush(T->tape_lp), T->tape_hp = fm_flush(T->tape_hp);
+            T->in_lp = fm_flush(T->in_lp), T->in_hp = fm_flush(T->in_hp);
             T->dk = fm_flush(dk);
             T->dd = fm_flush(dd);
         }
@@ -1404,6 +1415,8 @@ static void render_chunk(int32_t *out, uint32_t n, float gain)
         en_meter[NT] = pk[NT];
     ms_lp1 = fm_flush(ms_lp1);
     ms_lp2 = fm_flush(ms_lp2);
+    pl_bw = fm_flush(pl_bw), pl_damp_l = fm_flush(pl_damp_l), pl_damp_r = fm_flush(pl_damp_r);
+    pl_ol = fm_flush(pl_ol), pl_or = fm_flush(pl_or), pl_acc = fm_flush(pl_acc);
     de_rhp = fm_flush(de_rhp);
     de_rlp[0] = fm_flush(de_rlp[0]);
     de_rlp[1] = fm_flush(de_rlp[1]);
@@ -1451,6 +1464,7 @@ EN_COLD static void quiet(void)                  /* everything silent, now: the 
         for (i = 0; i < EAP_FB; i++)
             eap[t][i] = 0;
         T->tape_lp = T->tape_hp = T->in_lp = T->in_hp = T->p1 = T->c1 = T->p3 = T->c3 = T->tape_acc = 0.0f;
+        T->quiet = TAPE_N + 4 * EAP_FB + 1;
         T->s[0] = T->s[1] = T->s[2] = T->s[3] = 0.0f;
     }
     bass.on = 0, bass.lv = 0.0f;

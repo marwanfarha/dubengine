@@ -1,0 +1,119 @@
+# dubengine: randomise (EDIT the pattern, SAVE the sound, ARP the delay; each undone) and the slots (SEQ or ENV held,
+# the first eight white keys: a tap takes, a hold keeps)
+wav random.wav
+wait 500
+# a pattern by hand: two chords
+tap REC
+tapkey w0
+tapkey w8
+tap REC
+expect seqon 2
+expect seqdeg0 0
+# EDIT: the Random page. Density up; EDIT again: a new pattern
+tap EDIT
+wait 100
+expect page 16
+expect seqon 2
+spin K1 15
+wait 50
+tap EDIT
+wait 200
+expect seqon >3
+shot rolled.png
+# EDIT held: the pattern before
+press EDIT
+wait 1200
+release EDIT
+wait 200
+expect seqon 2
+expect seqdeg0 0
+# again: the roll back (the undo undone)
+press EDIT
+wait 1200
+release EDIT
+wait 200
+expect seqon >3
+# SEQ held, the third white key held: kept in pattern slot 3
+press SEQ
+wait 100
+key w2 down
+wait 1000
+key w2 up
+release SEQ
+wait 200
+expect page 16
+expect writes >0
+# cleared by hand (SEQ held), then slot 3 taken: back
+press SEQ
+wait 1700
+release SEQ
+wait 200
+expect seqon 0
+press SEQ
+wait 100
+tapkey w2
+release SEQ
+wait 200
+expect seqon >3
+# an empty slot: nothing changes
+press SEQ
+wait 100
+tapkey w5
+release SEQ
+wait 200
+expect seqon >3
+# it plays
+tap PLAY
+wait 2000
+# SAVE: the sound nudged; SAVE held: a new sound; ARP held: the sound before it
+tap SAVE
+wait 200
+press SAVE
+wait 1200
+release SAVE
+wait 300
+shot newsound.png
+press ARP
+wait 1200
+release ARP
+wait 200
+# ARP: a new delay; kept in sound slot 1 (ENV held, the first key held), the defaults back, the slot taken
+tap ARP
+wait 200
+expect syn56 1
+press ENV
+wait 100
+key w0 down
+wait 1000
+key w0 up
+release ENV
+wait 200
+tap PLAY
+wait 300
+# track B takes pattern slot 3 and sound slot 1: the slots are either track's
+tap HOME
+tap HOME
+wait 100
+expect track 1
+expect seqon 0
+press SEQ
+wait 100
+tapkey w2
+release SEQ
+press ENV
+wait 100
+tapkey w0
+release ENV
+wait 300
+expect seqon >3
+# after a restart the slots are there still
+wait 5000
+reboot
+wait 500
+tap HOME
+wait 100
+press SEQ
+wait 500
+leds
+release SEQ
+wavstop
