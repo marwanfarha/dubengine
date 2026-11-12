@@ -771,6 +771,8 @@ async function switchOn() {
   go.textContent = "Starting...";
   status.textContent = "Starting.";
   try {
+    /* iPhone and iPad: a page's audio is muted by the silent switch unless it says it's music playback (Safari 16.4+) */
+    try { if (navigator.audioSession) navigator.audioSession.type = "playback"; } catch { /* older Safari: the switch rules */ }
     const ac = new AudioContext({ sampleRate: 44100, latencyHint: "interactive" });
     const [wasm] = await Promise.all([fetch("amb.wasm").then((r) => { if (!r.ok) throw new Error(`amb.wasm: ${r.status}`); return r.arrayBuffer(); }),
                                       ac.audioWorklet.addModule("worklet.js")]);
