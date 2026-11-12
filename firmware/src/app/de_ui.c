@@ -35,7 +35,7 @@ static const int16_t DE_KNOBS[DE_NPAGE][6] = {
     {SY_DTIME, SY_DFB, SY_DMIX, SY_DTONE, SY_DWOW, SY_DDRIVE},
     {SY_RDECAY, SY_RSIZE, SY_RPRE, SY_RMIX, SY_RWIDTH, SY_RHICUT},
     {SY_RDAMP, SY_RDIFF, SY_RMODD, SY_RMODR, SY_RLOW, SY_RFREEZE},
-    {SY_DWIDTH, SY_DBLUR, -1, -1, -1, -1},
+    {SY_DWIDTH, SY_DBLUR, SY_DMODE, SY_DPING, -1, -1},
     {DE_ID_LVL, DE_ID_LVL + 1, -1, -1, -1, -1},
     {DE_ID_BAND, -1, -1, -1, -1, -1},            /* (the band's Freq, Gain, Q: de_kid) */
     {DE_ID_RND, DE_ID_RND + 1, DE_ID_RND + 2, DE_ID_RND + 3, -1, -1},
@@ -850,6 +850,7 @@ static void de_roll_fx(void)
     de_syn_put(SY_DDRIVE, de_ri(0, 45));
     de_syn_put(SY_DWIDTH, de_ri(30, 90));
     de_syn_put(SY_DBLUR, de_ri(30, 80));
+    de_syn_put(SY_DPING, de_ri(0, 2) == 0);
     de_syn_put(SY_RMIX, de_ri(15, 50));
     de_say("NEW DELAY");
 }
@@ -1000,6 +1001,8 @@ static void de_param_text(int id, char *b)        /* its value as shown */
     }
     switch (id) {
     case SY_WAVE: de_cat(b, EN_WAVE_NAME[v % EN_NWAVE]); return;
+    case SY_DMODE: de_cat(b, EN_DMODE_NAME[v % EN_NDMODE]); return;
+    case SY_DPING: de_cat(b, v ? "On" : "Off"); return;
     case SY_L1SHAPE: case SY_L2SHAPE: de_cat(b, EN_LS_NAME[v % EN_NLSHAPE]); return;
     case SY_1DST: case SY_2DST: case SY_L1DST: case SY_L2DST: de_cat(b, EN_MD_NAME[v % EN_NMD]); return;
     case SY_L1SYNC: case SY_L2SYNC: de_cat(b, EN_SYNC_NAME[v % EN_NSYNC]); return;

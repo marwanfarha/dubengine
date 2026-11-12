@@ -146,7 +146,7 @@ kbd { font: inherit; background: var(--card); border: 1px solid var(--line); pad
   <tr><td>Env 1, 2</td><td>Attack</td><td>Decay</td><td>Sustain</td><td>Release</td><td>Target</td><td>Depth</td></tr>
   <tr><td>LFO 1, 2</td><td>Rate</td><td>Shape</td><td>Target</td><td>Depth</td><td>Sync</td><td></td></tr>
   <tr><td>Delay</td><td>Time</td><td>Feedback</td><td>Mix</td><td>Tone</td><td>Wow</td><td>Drive</td></tr>
-  <tr><td>Delay 2</td><td>Width</td><td>Blur</td><td></td><td></td><td></td><td></td></tr>
+  <tr><td>Delay 2</td><td>Width</td><td>Blur</td><td>Mode</td><td>Ping pong</td><td></td><td></td></tr>
   <tr><td>Reverb</td><td>Decay</td><td>Size</td><td>Pre delay</td><td>Mix</td><td>Width</td><td>High cut</td></tr>
   <tr><td>Reverb 2</td><td>Damping</td><td>Diffusion</td><td>Mod depth</td><td>Mod rate</td><td>Low cut</td><td>Freeze</td></tr>
   <tr><td>Master</td><td>Level A</td><td>Level B</td><td></td><td></td><td></td><td></td></tr>
@@ -155,7 +155,8 @@ kbd { font: inherit; background: var(--card); border: 1px solid var(--line); pad
 </table>
 <ul>
   <li>Tempo is shared. Root, Mode and Voicing belong to the selected track.</li>
-  <li>Delay: SELECT switches the time between Sync and Free.</li>
+  <li>Delay: SELECT switches the time between Sync and Free. Feedback 100 holds forever, above 100 it swells and stays.</li>
+  <li>Delay 2: Mode is what a time change does (Repitch bends, Fade crossfades, Jump switches). Ping pong alternates left and right.</li>
   <li>Reverb: one for both tracks. Mix is each track's own send.</li>
   <li>EQ: 8 bands a track. Low cut, low shelf, four bells, high shelf, high cut.</li>
 </ul>

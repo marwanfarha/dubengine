@@ -404,6 +404,7 @@ volatile float en_pad_level, en_meter[EN_NMETER];
 
 #define TAPE_N 33000                             /* a track's tape: 3 s at 11.025 kHz (a bar at 80 bpm; the pool holds two) */
 #define TAPE_SR 11025.0f
+#define TAPE_FS 40000.0f                          /* the tape's full scale: +-0.82 (the loop's soft clip holds it to 0.7) */
 #define EAP_FB 994                               /* the feedback's diffusers: 37 + 89 + 151 + 276 + 441 (3 to 40 ms) */
 enum { ENV_AMP, ENV_FILT, ENV_1, ENV_2, NENV };
 enum { ST_IDLE, ST_ATT, ST_DEC, ST_REL };
@@ -431,12 +432,15 @@ typedef struct {
     float eqz[EN_NEQ][4];                        /* (the bands' states: left, right) */
     int tape_w, tape_ph, eap_i[5];
     int32_t quiet;                               /* tape samples written silent in a row (past the tape's length: empty) */
+    uint8_t dmode, ping;                         /* a new time: EN_DM_*; ping pong */
+    float len_b, xf;                             /* (Fade: the time faded to, how far, 0..1) */
+    float fbn;                                   /* (1 / the feedback's band-pass at its loudest) */
     float tape_acc, tape_lp, tape_hp, p1, c1, p3, c3, len, len_t, fb, hpc, lpc, in_lp, in_hp, in_c, blur, wide, wph1,
           wph2, dk, dd;
 } tk_t;
 static tk_t tk[NT];
 static int16_t tape[NT][TAPE_N] EN_POOL;
-static int16_t eap[NT][EAP_FB];                  /* (int16 at 1/8000: +-4; in the RAM: the pool is the tapes' and the plate's) */
+static int16_t eap[NT][EAP_FB];                  /* (int16 at 1/20000: +-1.6; in the RAM: the pool is the tapes' and the plate's) */
 static float pan_l[EN_NPAD], pan_r[EN_NPAD];     /* a chord's voices across the field */
 static float mixl[BLK], mixr[BLK], rsend[BLK], tl[BLK], tr[BLK], es[BLK], rs[BLK];
 static uint32_t sq_t;                            /* samples since the start */
@@ -458,6 +462,7 @@ static float step_samples(int t)
  * feedback may pass 100% and the echo swell on itself without running away. What goes in is band-limited (Tone) and
  * may be driven (Drive); the tape's speed sways (Wow). The right side reads a few ms later (Width). A new time is
  * glided to, as a tape's. */
+const char *const EN_DMODE_NAME[EN_NDMODE] = {"Repitch", "Fade", "Jump"};
 const char *const EN_DTIME_NAME[EN_NDTIME] = {"1/16", "1/8T", "1/8", "1/8.", "1/4T", "1/4", "1/4.", "1/2", "1/2.", "1 bar"};
 static const float DTIME_BEATS[EN_NDTIME] = {0.25f, 0.3333333f, 0.5f, 0.75f, 0.6666667f, 1.0f, 1.5f, 2.0f, 3.0f, 4.0f};
 EN_COLD float en_delay_ms(int v) { return 20.0f * fm_exp2f((float)v * 0.0664f); }   /* Free: 20 ms .. 2 s */
@@ -470,8 +475,8 @@ EN_COLD static void echo_time(int t)             /* the Delay page's time: Sync'
         s = DTIME_BEATS[(unsigned)E->syn[SY_DTIME] < EN_NDTIME ? E->syn[SY_DTIME] : 3] * 60.0f / (float)en_tempo;
     else
         s = en_delay_ms(E->syn[SY_DMS]) * 0.001f;
-    if (s * TAPE_SR > (float)(TAPE_N - 8))
-        s = (float)(TAPE_N - 8) / TAPE_SR;
+    if (s * TAPE_SR > (float)(TAPE_N - 8) * (E->syn[SY_DPING] ? 0.5f : 1.0f))   /* (ping pong: the loop twice the time) */
+        s = (float)(TAPE_N - 8) * (E->syn[SY_DPING] ? 0.5f : 1.0f) / TAPE_SR;
     T->len_t = s * TAPE_SR;
     if (T->len <= 0.0f)
         T->len = T->len_t;
@@ -488,30 +493,58 @@ static inline float tape_read(const int16_t *tp, int w, float d)   /* d quarter-
         i1 += TAPE_N;
     a = (float)tp[i0];
     c = (float)tp[i1];
-    return (a + (c - a) * f) * (1.0f / 12000.0f);
+    return (a + (c - a) * f) * (1.0f / TAPE_FS);
 }
-static inline int16_t s16(float x)
+static inline int16_t s16(float x)               /* (rounded: a quiet tail fades evenly, not cut short) */
 {
-    x *= 12000.0f;
+    x *= TAPE_FS;
+    x = fm_fabsf(x) < 0.75f ? 0.0f : x + (x < 0.0f ? -0.5f : 0.5f);   /* (under a step: nothing, so a tail ends) */
     return (int16_t)(x > 32767.0f ? 32767.0f : x < -32767.0f ? -32767.0f : x);
 }
 static inline float eapf(tk_t *T, int16_t *ap, int k, int off, int n, float x)
 {
     int16_t *b = ap + off;
-    float d = (float)b[T->eap_i[k]] * (1.0f / 8000.0f), y = d - T->blur * x, v = (x + T->blur * y) * 8000.0f;
+    float d = (float)b[T->eap_i[k]] * (1.0f / 20000.0f), y = d - T->blur * x, v = (x + T->blur * y) * 20000.0f;
+    v = fm_fabsf(v) < 0.75f ? 0.0f : v + (v < 0.0f ? -0.5f : 0.5f);
     b[T->eap_i[k]] = (int16_t)(v > 32767.0f ? 32767.0f : v < -32767.0f ? -32767.0f : v);
     if (++T->eap_i[k] >= n)
         T->eap_i[k] = 0;
     return y;
+}
+/* the heads at a time d: what comes out left and right, and what goes round (the diffusers' delay earlier). Ping pong:
+ * the loop twice as long; the left hears it at d, the right at 2 d, a feedback on (the repeats left, right, left) */
+static inline void heads(const tk_t *T, const int16_t *tp, float d, float *l, float *r, float *f)
+{
+    if (T->ping) {
+        const float d2 = fm_minf(2.0f * d, (float)(TAPE_N - 4));
+        *l = tape_read(tp, T->tape_w, d);
+        *r = tape_read(tp, T->tape_w, d2) * fm_minf(T->fb, 1.0f);
+        *f = tape_read(tp, T->tape_w, fm_maxf(d2 - (float)EAP_FB, 2.0f));
+    } else {
+        *l = tape_read(tp, T->tape_w, d);        /* (what comes out, on its time) */
+        *r = tape_read(tp, T->tape_w, fm_minf(d + 88.0f * fm_minf(T->wide, 2.0f), (float)(TAPE_N - 4)));   /* (the right's:
+                                                  * 8 ms later at Width 50, 16 at 100) */
+        *f = tape_read(tp, T->tape_w, fm_maxf(d - (float)EAP_FB, 2.0f));
+    }
 }
 /* one sample: the input (the track's send) to the tape, its repeats out (el, er) */
 static inline void echo_step(tk_t *T, int16_t *tp, int16_t *ap, float in, float *el, float *er)
 {
     T->tape_acc += in;
     if (++T->tape_ph >= 4) {                     /* the tape, a quarter of the time */
-        float d, h1, h3, f1, fb, x, w;
+        float d, h1, h3, f1, fb, x, w, g;
         T->tape_ph = 0;
-        T->len += (T->len_t - T->len) * 0.001f;
+        /* a new time. Repitch: glided to, as a tape's speed (the repeats bend); Jump: at once; Fade: the old time's
+         * repeats faded into the new time's over ~55 ms, no bend */
+        if (T->dmode == EN_DM_JUMP) {
+            T->len = T->len_t, T->xf = 0.0f;
+        } else if (T->dmode == EN_DM_FADE) {
+            if (T->xf <= 0.0f && T->len != T->len_t)
+                T->len_b = T->len_t, T->xf = 1e-6f;
+        } else {
+            T->len += (T->len_t - T->len) * 0.001f;
+            T->xf = 0.0f;
+        }
         if (T->len > (float)(TAPE_N - 8))
             T->len = (float)(TAPE_N - 8);
         d = T->len;
@@ -526,22 +559,29 @@ static inline void echo_step(tk_t *T, int16_t *tp, int16_t *ap, float in, float 
         }
         if (d > (float)(TAPE_N - 4))
             d = (float)(TAPE_N - 4);
-        h1 = tape_read(tp, T->tape_w, d);        /* (what comes out, on its time) */
-        h3 = tape_read(tp, T->tape_w, fm_minf(d + 88.0f * fm_minf(T->wide, 2.0f), (float)(TAPE_N - 4)));   /* (the right's:
-                                                  * 8 ms later at Width 50, 16 at 100) */
-        f1 = tape_read(tp, T->tape_w, fm_maxf(d - (float)EAP_FB, 2.0f));   /* (what goes round, the diffusers' delay earlier) */
+        heads(T, tp, d, &h1, &h3, &f1);
+        if (T->xf > 0.0f) {                      /* (Fade: on the way to the new time) */
+            float a1, a3, af;
+            heads(T, tp, fm_minf(T->len_b, (float)(TAPE_N - 4)), &a1, &a3, &af);
+            h1 += (a1 - h1) * T->xf, h3 += (a3 - h3) * T->xf, f1 += (af - f1) * T->xf;
+            if ((T->xf += 1.0f / 600.0f) >= 1.0f)
+                T->len = T->len_b, T->xf = 0.0f;
+        }
         T->tape_lp += T->lpc * (f1 - T->tape_lp);   /* each time round: thinner, darker */
         T->tape_hp += T->hpc * (T->tape_lp - T->tape_hp);
         fb = T->tape_lp - T->tape_hp;
         fb = eapf(T, ap, 4, 553, 441, eapf(T, ap, 3, 277, 276, eapf(T, ap, 2, 126, 151, eapf(T, ap, 1, 37, 89, eapf(T, ap, 0, 0, 37, fb)))));
         x = T->tape_acc * 0.25f;
         if (T->drive > 0.0f) {                   /* Drive: the tape pushed, saturating, its level kept */
-            const float g = 1.0f + 5.0f * T->drive;
-            x = sat(x * g) * (1.0f + 0.5f * T->drive) / g;
+            const float k = 1.0f + 5.0f * T->drive;
+            x = sat(x * k) * (1.0f + 0.5f * T->drive) / k;
         }
         T->in_lp += T->in_c * (x - T->in_lp);
         T->in_hp += 0.18f * (T->in_lp - T->in_hp);   /* (~350 Hz: the repeats above the chord's low mids) */
-        w = T->in_lp - T->in_hp + 0.7f * sat(fb * fm_minf(T->fb, 2.0f) * (1.0f / 0.7f));
+        /* the loop's gain: Feedback over what the band-pass takes at its loudest (fbn), so 100% holds for ever and
+         * more swells, into the soft clip; ping pong's loop is two repeats long */
+        g = fm_minf(T->fb, 2.0f) * (T->ping ? fm_minf(T->fb, 2.0f) : 1.0f) * T->fbn;
+        w = T->in_lp - T->in_hp + 0.7f * sat(fb * g * (1.0f / 0.7f));
         if (++T->tape_w >= TAPE_N)
             T->tape_w = 0;
         tp[T->tape_w] = s16(w);
@@ -554,8 +594,13 @@ static inline void echo_step(tk_t *T, int16_t *tp, int16_t *ap, float in, float 
     }
     {   /* between the tape's samples: a line from the last to the next */
         const float f = (float)T->tape_ph * 0.25f, h1 = T->p1 + (T->c1 - T->p1) * f, h3 = T->p3 + (T->c3 - T->p3) * f;
-        *el = 0.70710678f * h1;
-        *er = 0.70710678f * (h1 + fm_minf(0.6f * T->wide, 1.0f) * (h3 - h1));
+        if (T->ping) {
+            *el = h1;
+            *er = h3;
+        } else {
+            *el = 0.70710678f * h1;
+            *er = 0.70710678f * (h1 + fm_minf(0.6f * T->wide, 1.0f) * (h3 - h1));
+        }
     }
 }
 
@@ -592,6 +637,7 @@ const en_syn_info_t SYN_INFO[SY_N] = {
     {"Mod rate", 0, 100, 30}, {"Freeze", 0, 1, 0},
     {"Mode", 0, 1, 1}, {"Time", 0, 100, 60},
     {"Width", 0, 100, 50}, {"Blur", 0, 100, 50},
+    {"Mode", 0, EN_NDMODE - 1, EN_DM_REPITCH}, {"Ping pong", 0, 1, 0},
 };
 /* the plate's own, from the Reverb pages (either track's: both have them) */
 static float de_rlow, de_rwidth = 1.0f, de_rhp, de_rhc = 1.0f, de_rlp[2];
@@ -611,11 +657,30 @@ EN_COLD static void syn_fx(int t)                /* a track's sends, its delay's
     T->fb = (float)E->syn[SY_DFB] * 0.01f;       /* (Feedback in %: past 100 it swells) */
     T->hpc = 0.12f + 0.24f * tone * tone;        /* the repeats' band: ~220..800 Hz below, ~1.1..2.6 kHz above */
     T->lpc = 0.58f + 0.3f * tone;
+    {   /* (towards 100% the band opens, wide by 100: what goes round is kept whole, and holds; below 85% the repeats
+         * thin and darken as Tone has them) */
+        const float k = fm_clampf((T->fb - 0.85f) * (1.0f / 0.15f), 0.0f, 1.0f);
+        T->hpc += (0.012f - T->hpc) * k;
+        T->lpc += (0.98f - T->lpc) * k;
+    }
     /* what enters the tape: a low-pass ~2 kHz at 50, down to 500 Hz at 0, up to 5 kHz at 100 */
     T->in_c = 1.0f - fm_expf(-2.0f * FM_PI * fm_clampf(2000.0f * fm_exp2f((float)(tv - 50) * (tv > 50 ? 0.026439f : 0.04f)),
                                                       400.0f, 5000.0f) / TAPE_SR);
     T->blur = bl <= 50 ? 0.15f + 0.009f * (float)bl : 0.6f + 0.003f * (float)(bl - 50);   /* the diffusers' gain */
     T->wide = (float)E->syn[SY_DWIDTH] * 0.02f;  /* 0 mono, 1 (50), 2 wide */
+    T->dmode = (uint8_t)E->syn[SY_DMODE];
+    T->ping = (uint8_t)(E->syn[SY_DPING] != 0);
+    {   /* the band-pass's loudest: a low-pass (lpc), less its own low-pass (hpc); looked for from 60 Hz to 5 kHz */
+        const float a = 1.0f - T->lpc, a2 = 1.0f - T->hpc;
+        float best = 1e-6f, hz;
+        for (hz = 60.0f; hz < 5000.0f; hz *= 1.12f) {
+            const float c = fm_cosf(2.0f * FM_PI * hz / TAPE_SR);
+            const float m = T->lpc * T->lpc / (1.0f + a * a - 2.0f * a * c) * a2 * a2 * (2.0f - 2.0f * c) / (1.0f + a2 * a2 - 2.0f * a2 * c);
+            if (m > best)
+                best = m;
+        }
+        T->fbn = 1.0f / fm_sqrtf(best);
+    }
     echo_time(t);
     pl_decay_t = 0.45f + 0.0051f * (float)E->syn[SY_RDECAY];   /* (to 0.96) */
     de_pdamp = 0.95f - 0.8f * (float)E->syn[SY_RDAMP] * 0.01f;

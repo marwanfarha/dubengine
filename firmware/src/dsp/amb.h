@@ -101,6 +101,7 @@ enum {
                                                                  * depth and rate, freeze */
     SY_DSYNC, SY_DMS,                                      /* Delay: Sync (1) or Free (0); the free time (0..100: 20 ms .. 2 s) */
     SY_DWIDTH, SY_DBLUR,                                   /* Delay 2: the repeats' width, their blur */
+    SY_DMODE, SY_DPING,                                    /* Delay 2: a new time Repitch (a tape's glide), Fade or Jump; ping pong */
     SY_N
 };
 typedef struct {
@@ -112,6 +113,8 @@ extern const char *const EN_WAVE_NAME[EN_NWAVE];
 extern const char *const EN_LS_NAME[EN_NLSHAPE];
 extern const char *const EN_MD_NAME[EN_NMD];
 #define EN_NSYNC 8                                 /* an LFO's sync: Free, then 4 bars .. 1/16 */
+enum { EN_DM_REPITCH, EN_DM_FADE, EN_DM_JUMP, EN_NDMODE };
+extern const char *const EN_DMODE_NAME[EN_NDMODE];
 #define EN_NDTIME 10                               /* the delay's times: 1/16 .. 1 bar */
 extern const char *const EN_DTIME_NAME[EN_NDTIME];
 extern const char *const EN_SYNC_NAME[EN_NSYNC];

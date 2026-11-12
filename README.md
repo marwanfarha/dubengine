@@ -79,7 +79,7 @@ Everything saves by itself 3 seconds after you stop.
 | Env 1, 2 | Attack | Decay | Sustain | Release | Target | Depth |
 | LFO 1, 2 | Rate | Shape | Target | Depth | Sync | |
 | Delay | Time | Feedback | Mix | Tone | Wow | Drive |
-| Delay 2 | Width | Blur | | | | |
+| Delay 2 | Width | Blur | Mode | Ping pong | | |
 | Reverb | Decay | Size | Pre delay | Mix | Width | High cut |
 | Reverb 2 | Damping | Diffusion | Mod depth | Mod rate | Low cut | Freeze |
 | Master | Level A | Level B | | | | |
@@ -88,7 +88,10 @@ Everything saves by itself 3 seconds after you stop.
 
 * **Tempo** is shared. **Root, Mode and Voicing** belong to the selected track.
 * **Modes:** Major, Dorian, Phrygian, Lydian, Mixolydian, Minor, Locrian.
-* **Delay:** SELECT switches the time between Sync (1/16 to 1 bar) and Free (20 ms to 2 s). The longest delay is 3 seconds.
+* **Delay:** SELECT switches the time between Sync (1/16 to 1 bar) and Free (20 ms to 2 s). The longest delay is 3 seconds (1.5 with ping pong).
+* **Feedback:** below 85 the repeats thin and darken with Tone. At 100 they hold forever. Above 100 they swell into tape saturation and stay.
+* **Mode** (what happens when the delay time changes): Repitch bends the repeats like a tape, Fade crossfades with no bend, Jump switches at once.
+* **Ping pong:** repeats alternate left and right.
 * **Mix:** 0 dry only, 50 dry and wet both full, 100 wet only.
 * **Reverb:** one reverb for both tracks. Mix is each track's own send. The other reverb knobs are shared.
 * **Targets** for envelopes and LFOs: pitch, fold, detune, cutoff, reso, level, amp attack, decay and release, delay mix.
