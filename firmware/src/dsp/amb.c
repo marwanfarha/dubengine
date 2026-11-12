@@ -281,7 +281,7 @@ static const int DL_LEN[L_N] = {1, DS(142), DS(107), DS(379), DS(277), DS(672) +
                   DS(4217) + DS(2656) + DS(3163) + 2 * (EXC + 2))
 static float pl_buf[DL_TOTAL] EN_POOL;
 /* (the pre-delay its own line, int16 at 1/16384 (+-2), so 100 ms fits the pool's headroom) */
-static int16_t pre_buf[PRE_N] EN_POOL;
+static int16_t pre_buf[PRE_N];
 static int pre_i;
 static inline void pre_push(float x)
 {
@@ -397,7 +397,7 @@ volatile en_trk_t en_trk[NT];
 volatile uint8_t en_tempo = 120, en_seq_playing, en_seq_rec, en_metro_on, en_metro_lvl = 60;
 volatile float en_pad_level, en_meter[EN_NMETER];
 
-#define TAPE_N 46000                             /* a track's tape: 4.17 s at 11.025 kHz (a bar at 58 bpm) */
+#define TAPE_N 33000                             /* a track's tape: 3 s at 11.025 kHz (a bar at 80 bpm; the pool holds two) */
 #define TAPE_SR 11025.0f
 #define EAP_FB 994                               /* the feedback's diffusers: 37 + 89 + 151 + 276 + 441 (3 to 40 ms) */
 enum { ENV_AMP, ENV_FILT, ENV_1, ENV_2, NENV };
@@ -423,7 +423,7 @@ typedef struct {
 } tk_t;
 static tk_t tk[NT];
 static int16_t tape[NT][TAPE_N] EN_POOL;
-static int16_t eap[NT][EAP_FB] EN_POOL;          /* (int16 at 1/8000: +-4) */
+static int16_t eap[NT][EAP_FB];                  /* (int16 at 1/8000: +-4; in the RAM: the pool is the tapes' and the plate's) */
 static float pan_l[EN_NPAD], pan_r[EN_NPAD];     /* a chord's voices across the field */
 static float mixl[BLK], mixr[BLK], rsend[BLK], tl[BLK], tr[BLK], es[BLK];
 static uint32_t sq_t;                            /* samples since the start */
