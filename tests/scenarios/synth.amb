@@ -49,7 +49,7 @@ key 7 down
 wait 1500
 shot lfo1.png
 key 7 up
-# FX: the Delay page, then the Reverb page
+# FX: the Delay page, Delay 2, then the Reverb pages
 tap FX
 wait 100
 expect syn38 3
@@ -64,6 +64,9 @@ wait 300
 key 7 up
 wait 100
 shot delay.png
+tap FX
+wait 100
+expect page 13
 tap FX
 wait 100
 spin K3 10
