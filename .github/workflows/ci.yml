@@ -49,3 +49,36 @@ jobs:
         with:
           name: emulator
           path: build/emu
+
+  # The real firmware, built for the FM1 with JieLi's toolchain, then every test again with the package there: the
+  # update path (the loader, the package's entry, an older package updated to this one) and the web installer. The
+  # build itself checks the image, RAM and pool sizes. The .fwsc is kept as a download, for testing on a unit.
+  firmware:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: DUB 1's v1.0.0 tag (the recipe prints check)
+        run: git fetch --no-tags https://github.com/sbegueria/fm1-dub 'refs/tags/v1.0.0:refs/tags/v1.0.0'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Libraries
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libfribidi0 libraqm0 xz-utils
+      - run: pip install pillow mido
+      - name: JieLi toolchain
+        run: sh tools/get_toolchain.sh
+      - name: JieLi AC79 SDK
+        run: git clone --depth 1 --branch AC79NN_SDK_V1.2.1_2023-12-13 https://gitee.com/Jieli-Tech/fw-AC79_AIoT_SDK.git ~/fw-AC79_AIoT_SDK
+      - name: Build the firmware
+        run: ./build.sh
+      - name: Every test, the update path included
+        run: AC79_SDK=$HOME/fw-AC79_AIoT_SDK sh tests/run_tests.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: firmware
+          path: build/*.fwsc
+          if-no-files-found: ignore
+
