@@ -44,6 +44,8 @@ const en_syn_info_t SYN_INFO[SY_N] = {
 float en_delay_ms(int v) { return 20.0f * fm_exp2f((float)v * 0.0664f); }   /* Free: 20 ms .. 2 s */
 volatile int16_t en_syn[SY_N];
 volatile float en_syn_amp;
+volatile float en_md_now[EN_NMD], en_env_lv[4], en_env_age[4], en_lfo_ph[2], en_lfo_val[2], en_cut_now, en_fold_now, en_det_now;
+volatile uint8_t en_env_st[4];
 
 enum { ENV_AMP, ENV_FILT, ENV_1, ENV_2, NENV };
 enum { ST_IDLE, ST_ATT, ST_DEC, ST_REL };
@@ -132,7 +134,7 @@ static void syn_trig(void)                       /* a chord struck: every envelo
     if (!sy_ready)
         syn_defaults();
     for (i = 0; i < NENV; i++)
-        sy_env[i].st = ST_ATT;
+        sy_env[i].st = ST_ATT, en_env_age[i] = 0.0f;
     sy_rand[0] = sy_rand[1] = 0.0f;
 }
 
@@ -144,13 +146,14 @@ static float sy_env_step(int e, int a, int d, int s, int r, float am, float dm, 
 {
     float *lv = &sy_env[e].lv;
     const float sus = (float)s * 0.01f;
-    if (!gate && sy_env[e].st != ST_IDLE)
-        sy_env[e].st = ST_REL;
+    if (!gate && sy_env[e].st != ST_IDLE && sy_env[e].st != ST_REL)
+        sy_env[e].st = ST_REL, en_env_age[e] = 0.0f;
+    en_env_age[e] += 32.0f / EN_SR;
     switch (sy_env[e].st) {
     case ST_ATT: {                               /* a straight line up */
         *lv += 32.0f / (sy_env_time(a, am) * EN_SR);
         if (*lv >= 1.0f)
-            *lv = 1.0f, sy_env[e].st = ST_DEC;
+            *lv = 1.0f, sy_env[e].st = ST_DEC, en_env_age[e] = 0.0f;
         break;
     }
     case ST_DEC:                                 /* an exponential fall to the sustain (the time to ~-60 dB of it) */
@@ -165,6 +168,8 @@ static float sy_env_step(int e, int a, int d, int s, int r, float am, float dm, 
         *lv = 0.0f;
         break;
     }
+    en_env_lv[e] = *lv;
+    en_env_st[e] = sy_env[e].st;
     return *lv;
 }
 
@@ -191,6 +196,8 @@ static float sy_lfo_step(int k)                     /* LFO k, 32 samples on: -1 
     default: y = sine(ph); break;
     }
     sy_lfo_v[k] = y;
+    en_lfo_ph[k] = ph;
+    en_lfo_val[k] = y;
     return y;
 }
 
@@ -255,6 +262,13 @@ static void render_synth(uint32_t n)
                                5.0f * md[EN_MD_CUTOFF]);
         k = 2.0f - 1.9f * fm_clampf((float)en_syn[SY_RESO] * 0.01f + md[EN_MD_RESO], 0.0f, 1.0f);
         svf_coefs(sy_c, fm_clampf(cut, 30.0f, 16000.0f), k);
+        if (!j) {                                /* (the screen's: as heard at the block's start) */
+            for (i = 0; i < EN_NMD; i++)
+                en_md_now[i] = md[i];
+            en_cut_now = fm_clampf(cut, 30.0f, 16000.0f);
+            en_fold_now = fold;
+            en_det_now = det * (1.0f / 0.0145f);
+        }
         lvl = fm_clampf((float)en_syn[SY_LEVEL] * 0.01f * (1.0f + md[EN_MD_LEVEL]), 0.0f, 1.5f);
         gain = lvl * 0.28f;
         echo = fm_clampf(de_dmix + md[EN_MD_ECHO], 0.0f, 1.0f) * 0.9f;

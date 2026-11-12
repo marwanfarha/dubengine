@@ -277,6 +277,12 @@ extern const char *const EN_SYNC_NAME[EN_NSYNC];
 extern volatile int16_t en_syn[SY_N];
 void en_syn_set(int p, int v);
 extern volatile float en_syn_amp;
+/* (UI) the synth as it is now, for the screen's pictures: the modulation on each target (EN_MD_*), each envelope's level
+ * (0..1), stage (0 idle, 1 attack, 2 decay/sustain, 3 release) and seconds in it (the amp's, the filter's, Env 1, Env 2),
+ * each LFO's phase (0..1) and value (-1..1), and the values heard: cutoff (Hz), fold, detune (0..1) */
+extern volatile float en_md_now[EN_NMD], en_env_lv[4], en_env_age[4], en_lfo_ph[2], en_lfo_val[2];
+extern volatile float en_cut_now, en_fold_now, en_det_now;
+extern volatile uint8_t en_env_st[4];
 float en_delay_ms(int v);                          /* the Delay's Free time, SY_DMS's value in ms */                  /* (UI, tests) the amp envelope now, 0..1 */
 void en_next(void);                            /* the next chord: on the next bar (now while resting) */
 void en_freeze(int on);

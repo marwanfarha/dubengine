@@ -94,6 +94,13 @@ static void de_cat(char *b, const char *s)
     *b = 0;
 }
 
+static int de_len(const char *s)                 /* (the device's libc has no strlen) */
+{
+    int n = 0;
+    while (s[n])
+        n++;
+    return n;
+}
 static void de_say(const char *s)
 {
     uint32_t i;
@@ -676,7 +683,7 @@ static void de_draw_sound(void)                  /* a sound page: its picture, a
         b[0] = 0;
         de_cat(b, de_param_name(id));
         de_cat(b, " ");
-        de_param_text(id, b + __builtin_strlen(b));
+        de_param_text(id, b + de_len(b));
         cv_text(x, 98 + (i - 4) * 18, &FONT_XS, b, K_TEXT);
     }
 }
