@@ -19,7 +19,9 @@
 
 #define EN_SR 44100.0f
 #define EN_NPAD 4                      /* a chord's voices */
-#define EN_NTRK 2
+#define EN_NTRK 4                      /* A, B (chords), the bass, the ping */
+#define EN_NCHORD 2
+enum { EN_T_A, EN_T_B, EN_T_BASS, EN_T_PING };
 
 enum { MODE_IONIAN, MODE_DORIAN, MODE_PHRYGIAN, MODE_LYDIAN, MODE_MIXOLYDIAN, MODE_AEOLIAN, MODE_PENT_MAJ,
        MODE_PENT_MIN, MODE_HIRAJOSHI, MODE_IN, MODE_IWATO, MODE_YO, MODE_INSEN, MODE_LOCRIAN, EN_NMODES };
@@ -136,6 +138,9 @@ void en_mix_set(int p, int v);
 float en_eq_hz(int v);                             /* a band's frequency, its value in Hz */
 float en_eq_db(float hz);                          /* (UI) the selected track's EQ at hz, dB */
 
+/* (the bass's and the ping's parameters: below) */
+enum { VP_VOICE, VP_FM, VP_RATIO, VP_FB, VP_ATT, VP_DEC, VP_MDEC, VP_GLIDE, VP_CUT, VP_DRIVE, VP_LEVEL, VP_REV,
+       VP_DTIME, VP_DFB, VP_DMIX, VP_DTONE, VP_N };
 /* (UI, tests) a track as the engine has it: its key, its pattern and where it plays, the key whose chord sounds (0
  * none) and its notes as voiced, the chord last struck (its root's pitch class, its quality EN_Q_*, a count that moves
  * with each strike), its parameters; and for the screen's pictures the modulation on each target (EN_MD_*), each
@@ -147,7 +152,7 @@ typedef struct {
     uint16_t pool;
     uint32_t seq_steps;
     uint8_t key_note, key_tri[3], now_pc, now_q, now_n;
-    int16_t syn[SY_N], mx[MX_N];
+    int16_t syn[SY_N], mx[MX_N], vp[VP_N];
     float syn_amp, md_now[EN_NMD], env_lv[4], env_age[4], lfo_ph[2], lfo_val[2], cut_now, fold_now, det_now;
     uint8_t env_st[4];
 } en_trk_t;
@@ -164,6 +169,7 @@ extern volatile en_trk_t en_trk[EN_NTRK];
 #define en_now_n (en_trk[en_sel].now_n)
 #define en_syn (en_trk[en_sel].syn)
 #define en_mx (en_trk[en_sel].mx)
+#define en_vp (en_trk[en_sel].vp)
 #define en_syn_amp (en_trk[en_sel].syn_amp)
 #define en_md_now (en_trk[en_sel].md_now)
 #define en_env_lv (en_trk[en_sel].env_lv)
@@ -175,12 +181,28 @@ extern volatile en_trk_t en_trk[EN_NTRK];
 #define en_fold_now (en_trk[en_sel].fold_now)
 #define en_det_now (en_trk[en_sel].det_now)
 extern volatile float en_pad_level;               /* (UI) the louder track's amp envelope, 0..1 */
-/* (UI) the peaks since last taken (the reader sets them to 0): track A, track B, the output; 1.0 full scale */
+/* (UI) the peaks since last taken (the reader sets them to 0): each track, then the output; 1.0 full scale */
 #define EN_NMETER (EN_NTRK + 1)
 extern volatile float en_meter[EN_NMETER];
 
-/* the bass and the ping: FM voices, each note played from here until their sequencers come. vel 1..127 */
-void en_bass_note(int note, int vel, int ms);
+/* the bass and the ping: tracks as A and B are (a key, a pattern, the keys), each step one note of the scale: the bass
+ * one voice, two octaves under the keys, held as long as the step; the ping six, an octave over, each ringing out.
+ * Their sound, en_vp[] (set by en_vp_set, ranges VP_INFO's): an FM voice (EN_VOICE_NAME), how much FM, the modulator's
+ * ratio, feedback; Attack, Decay (the bass's at 100: held), Bite (how long the FM's edge lasts), Glide (the bass) or
+ * Spread (the ping, left and right in turn); a low-pass, Drive, Level, the plate's send; the ping's own delay.
+ * A step's locks: Level, Cutoff and (the ping) its Delay mix. */
+#define EN_NVOICE 8
+#define EN_NRATIO 8
+typedef struct {
+    const char *name;
+    int16_t lo, hi, def[2];                        /* (the default: the bass's, the ping's) */
+} en_vp_info_t;
+extern const en_vp_info_t VP_INFO[VP_N];
+extern const char *const EN_VOICE_NAME[EN_NVOICE];
+extern const char *const EN_RATIO_NAME[EN_NRATIO];
+void en_vp_set(int p, int v);
+void en_voice_wave(float *v, int n);               /* (UI) the selected voice as struck: two cycles, -1..1 */
+void en_bass_note(int note, int vel, int ms);      /* (tests) a note outside the pattern; vel 1..127 */
 void en_ping_note(int note, int vel);
 
 #if !defined(EN_HOST) && !defined(EN_PROF)

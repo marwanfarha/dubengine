@@ -55,6 +55,8 @@ shot delay2.png
 # a step's locks: step edit, a step held; ALGORITHM its Level, PRESETS its Cutoff, SELECT its Delay mix
 tap HOME
 tap HOME
+tap HOME
+tap HOME
 wait 100
 expect track 0
 tap REC

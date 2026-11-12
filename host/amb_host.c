@@ -23,7 +23,7 @@
  *   splash N | splashrun         the launch screen's frame N; the launch screen played out, then the UI again
  *   echo TEXT
  * expect: track (0 A, 1 B), tempo, root, mode, voicing, seqon, seqplaying, seqrec, seqlen, seqdiv, metro, seqdegN,
- * steplenN, synN, mxN, lockW_N, page (the selected track's; a "b" before the name: track B's, a "a": track A's, e.g. bseqon), litkeyN,
+ * steplenN, synN, mxN, lockW_N, page (the selected track's; a letter before the name: a track A's, b B's, c the bass's, d the ping's, e.g. bseqon), litkeyN,
  * litbtnNAME, padlvl, writes, blits, peak_db_max, peak_db_min
  */
 #define EN_HOST 1
@@ -372,11 +372,11 @@ static int key_of(const char *s)
 static int expect(const char *what, const char *val)
 {
     int got = 0, i, t = en_sel;
-    if ((what[0] == 'a' || what[0] == 'b') && (!strncmp(what + 1, "seq", 3) || !strncmp(what + 1, "syn", 3) ||
+    if (what[0] >= 'a' && what[0] <= 'd' && (!strncmp(what + 1, "vp", 2) || !strncmp(what + 1, "seq", 3) || !strncmp(what + 1, "syn", 3) ||
                                                !strncmp(what + 1, "step", 4) || !strcmp(what + 1, "root") || !strncmp(what + 1, "mx", 2) ||
                                                !strncmp(what + 1, "lock", 4) ||
                                                !strcmp(what + 1, "mode") || !strcmp(what + 1, "voicing"))) {
-        t = what[0] == 'b';
+        t = what[0] - 'a';
         what++;
     }
     if (!strcmp(what, "seqon")) {               /* the steps with a chord */
@@ -406,6 +406,8 @@ static int expect(const char *what, const char *val)
         got = en_trk[t].seq[atoi(what + 6) % EN_SEQ_MAX].on ? en_trk[t].seq[atoi(what + 6) % EN_SEQ_MAX].deg : -1;
     else if (!strncmp(what, "syn", 3) && what[3] >= '0' && what[3] <= '9')   /* synN: the synth's parameter N (SY_*) */
         got = en_trk[t].syn[atoi(what + 3) % SY_N];
+    else if (!strncmp(what, "vp", 2) && what[2] >= '0' && what[2] <= '9')   /* vpN: the bass's or the ping's parameter N */
+        got = en_trk[t].vp[atoi(what + 2) % VP_N];
     else if (!strcmp(what, "page"))             /* the panel's page (de_ui.c DE_*) */
         got = de.page;
     else if (!strncmp(what, "mx", 2) && what[2] >= '0' && what[2] <= '9')   /* mxN: the mix's parameter N (MX_*) */

@@ -80,7 +80,7 @@ kbd { font: inherit; background: var(--card); border: 1px solid var(--line); pad
 <main>
 <header>
   <h1>dubengine</h1>
-  <p>Two tracks of dub chords for the M VAVE FM1. The same code the FM1 runs, in your browser.</p>
+  <p>Two tracks of dub chords, a bass and an FM ping for the M VAVE FM1. The same code the FM1 runs, in your browser.</p>
 </header>
 
 <h2 class="sr" id="h-device">The FM1</h2>
@@ -109,7 +109,7 @@ kbd { font: inherit; background: var(--card); border: 1px solid var(--line); pad
 <ol>
   <li><b>Switch on</b>, then press a <b>lit key</b>. Each one plays the chord the scale builds on it. Dark keys are outside the scale.</li>
   <li><b>HOME</b>: KNOB 1 tempo, KNOB 2 root, KNOB 3 mode, KNOB 4 voicing.</li>
-  <li><b>HOME again</b>: the other track. The header shows A or B. Each track has its own key, pattern, sound, delay and EQ.</li>
+  <li><b>HOME again</b>: the next track: A, B, BS (bass), PG (ping). Each track has its own key, pattern and sound.</li>
   <li><b>SEL</b>: metronome on or off.</li>
   <li><b>PLAY</b>, then <b>REC</b>: play lit keys to record. REC again to stop recording.</li>
   <li><b>ENV</b>, <b>LFO</b>, <b>FX</b>: shape the sound. Press again for the next page.</li>
@@ -122,9 +122,9 @@ kbd { font: inherit; background: var(--card); border: 1px solid var(--line); pad
   <tr><td>PLAY</td><td>Start and stop both tracks.</td><td></td></tr>
   <tr><td>REC</td><td>Playing: record on or off. Stopped: step edit on or off.</td><td></td></tr>
   <tr><td>SEL</td><td>Metronome on or off.</td><td></td></tr>
-  <tr><td>HOME</td><td>Play page. Again: the other track.</td><td></td></tr>
+  <tr><td>HOME</td><td>Play page. Again: the next track (A, B, Bass, Ping).</td><td></td></tr>
   <tr><td>SEQ</td><td>Pattern page.</td><td>2.5 s: clear the pattern (a countdown shows), again to bring it back. With a white key: pattern slots.</td></tr>
-  <tr><td>ENV</td><td>Osc, Filter, Amp env, Filter env, Env 1, Env 2.</td><td>With a white key: sound slots.</td></tr>
+  <tr><td>ENV</td><td>A, B: Osc, Filter, Amp env, Filter env, Env 1, Env 2. Bass, Ping: Voice, Shape, Tone (Ping: Delay too).</td><td>With a white key: sound slots.</td></tr>
   <tr><td>LFO</td><td>LFO 1, LFO 2.</td><td></td></tr>
   <tr><td>FX</td><td>Delay, Delay 2, Reverb, Reverb 2.</td><td></td></tr>
   <tr><td>GLO</td><td>Master, EQ of track A, EQ of track B.</td><td>1 s: save now.</td></tr>
@@ -149,7 +149,11 @@ kbd { font: inherit; background: var(--card); border: 1px solid var(--line); pad
   <tr><td>Delay 2</td><td>Width</td><td>Blur</td><td>Mode</td><td>Ping pong</td><td></td><td></td></tr>
   <tr><td>Reverb</td><td>Decay</td><td>Size</td><td>Pre delay</td><td>Mix</td><td>Width</td><td>High cut</td></tr>
   <tr><td>Reverb 2</td><td>Damping</td><td>Diffusion</td><td>Mod depth</td><td>Mod rate</td><td>Low cut</td><td>Freeze</td></tr>
-  <tr><td>Master</td><td>Level A</td><td>Level B</td><td></td><td></td><td></td><td></td></tr>
+  <tr><td>Master</td><td>Level A</td><td>Level B</td><td>Bass</td><td>Ping</td><td></td><td></td></tr>
+  <tr><td>Voice (bass, ping)</td><td>Voice</td><td>FM</td><td>Ratio</td><td>Feedback</td><td></td><td></td></tr>
+  <tr><td>Shape</td><td>Attack</td><td>Decay</td><td>Bite</td><td>Glide or Spread</td><td></td><td></td></tr>
+  <tr><td>Tone</td><td>Cutoff</td><td>Drive</td><td>Level</td><td>Reverb</td><td></td><td></td></tr>
+  <tr><td>Delay (ping)</td><td>Time</td><td>Feedback</td><td>Mix</td><td>Tone</td><td></td><td></td></tr>
   <tr><td>EQ</td><td>Band</td><td>Freq</td><td>Gain</td><td>Q</td><td></td><td></td></tr>
   <tr><td>Random</td><td>Density</td><td>Variation</td><td>Length</td><td>Offbeat</td><td></td><td></td></tr>
 </table>
@@ -334,7 +338,7 @@ function hit(c, cls, attrs, parent = controls) {
 const TIP = { FX: "Delay, Delay 2, Reverb, Reverb 2, in turn.", SEL: "Metronome on or off.",
   ENV: "Osc, Filter, Amp env, Filter env, Env 1, Env 2, in turn. Held with a white key: sound slots.", LFO: "LFO 1, LFO 2.",
   EDIT: "The Random page. Again: a new pattern. Hold: undo the pattern.",
-  GLO: "Master, EQ of track A, EQ of track B, in turn. Hold: save now.", HOME: "The Play page: tempo, root, mode, voicing. Again: the other track.",
+  GLO: "Master, EQ of track A, EQ of track B, in turn. Hold: save now.", HOME: "The Play page: tempo, root, mode, voicing. Again: the next track (A, B, Bass, Ping).",
   SAVE: "Nudge the sound. Hold: a whole new sound.", ARP: "A new delay for this track. Hold: undo the last sound or delay change.",
   SEQ: "The Pattern page. Hold: clear the pattern, again to bring it back. Held with a white key: pattern slots.",
   PLAY: "Start and stop both tracks.", REC: "Playing: live recording on or off. Stopped: step edit on or off.",

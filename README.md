@@ -1,6 +1,6 @@
 # dubengine
 
-Custom firmware for the **M VAVE FM1**: two tracks of dub chords for dub techno, minimal and microhouse.
+Custom firmware for the **M VAVE FM1**: two tracks of dub chords, a bass and an FM ping, for dub techno, minimal and microhouse.
 
 **[▶ Play it in your browser](https://marwanfarha.github.io/dubengine/)**, the same code the FM1 runs. Turn your phone sideways for bigger controls.
 
@@ -17,7 +17,7 @@ Custom firmware for the **M VAVE FM1**: two tracks of dub chords for dub techno,
 * **Master page.** Levels, meters and an 8 band EQ for each track.
 * **Randomise** the pattern, the sound or the delay, once, by hand. Each roll can be undone.
 * **8 pattern slots and 8 sound slots.**
-* **Kept for later:** a bass voice and an FM ping voice, waiting for their sequencers.
+* **Bass and Ping tracks.** FM voices with their own key, pattern and sound pages. The ping has its own delay.
 
 ## Install on your FM1
 
@@ -40,7 +40,7 @@ Works from the stock firmware or DUB 1.
 ### Quick start
 1. Press a **lit key**. It plays the chord the scale builds on that note. Dark keys are outside the scale.
 2. **HOME**: KNOB 1 tempo, KNOB 2 root, KNOB 3 mode, KNOB 4 voicing.
-3. **HOME again**: the other track. The header shows **A** or **B**. Everything you play and edit goes to that track.
+3. **HOME again**: the next track, in turn: **A**, **B**, **BS** (bass), **PG** (ping). The header shows which. Everything you play and edit goes to that track.
 4. **SEL**: metronome on or off.
 5. **PLAY**, then **REC**: play lit keys to record. **REC** again to stop recording.
 6. **ENV**, **LFO**, **FX**: shape the sound. Press again for the next page.
@@ -53,11 +53,11 @@ Works from the stock firmware or DUB 1.
 | PLAY | Start and stop both tracks. | |
 | REC | Playing: live recording on or off. Stopped: step edit on or off. | |
 | SEL | Metronome on or off. | |
-| HOME | Play page. Again: the other track. | |
+| HOME | Play page. Again: the next track (A, B, Bass, Ping). | |
 | SEQ | Pattern page. | 2.5 s: clear the pattern (a countdown shows). Again within 5 s: bring it back. With a white key: pattern slots. |
-| ENV | Osc, Filter, Amp env, Filter env, Env 1, Env 2, in turn. | With a white key: sound slots. |
-| LFO | LFO 1, LFO 2. | |
-| FX | Delay, Delay 2, Reverb, Reverb 2, in turn. | |
+| ENV | A, B: Osc, Filter, Amp env, Filter env, Env 1, Env 2, in turn. Bass, Ping: Voice, Shape, Tone (Ping: Delay too). | With a white key: sound slots. |
+| LFO | LFO 1, LFO 2 (A and B only). | |
+| FX | A, B: Delay, Delay 2, Reverb, Reverb 2, in turn. Ping: its Delay page. | |
 | GLO | Master, EQ of track A, EQ of track B, in turn. | 1 s: save now. |
 | EDIT | Random page. Again: a new pattern. | 1 s: undo the pattern. |
 | SAVE | Nudge the sound a little. | 1 s: a whole new sound. |
@@ -82,7 +82,7 @@ Everything saves by itself 3 seconds after you stop.
 | Delay 2 | Width | Blur | Mode | Ping pong | | |
 | Reverb | Decay | Size | Pre delay | Mix | Width | High cut |
 | Reverb 2 | Damping | Diffusion | Mod depth | Mod rate | Low cut | Freeze |
-| Master | Level A | Level B | | | | |
+| Master | Level A | Level B | Bass | Ping | | |
 | EQ | Band | Freq | Gain | Q | | |
 | Random | Density | Variation | Length | Offbeat | | |
 
@@ -96,8 +96,27 @@ Everything saves by itself 3 seconds after you stop.
 * **Reverb:** one reverb for both tracks. Mix is each track's own send. The other reverb knobs are shared.
 * **Targets** for envelopes and LFOs: pitch, fold, detune, cutoff, reso, level, amp attack, decay and release, delay mix.
 
+### Bass and Ping
+Each is a track like A and B: its own key, pattern, step edit, slots and randomise. A key plays one note of the scale. The bass plays two octaves below the keys and holds for the step's length. The ping plays an octave above and rings out.
+
+| Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
+| --- | --- | --- | --- | --- |
+| Voice | Voice | FM | Ratio | Feedback |
+| Shape | Attack | Decay | Bite | Glide (bass), Spread (ping) |
+| Tone | Cutoff | Drive | Level | Reverb |
+| Delay (ping only) | Time | Feedback | Mix | Tone |
+
+* **Voice:** Sub, Punch, Rubber, Pluck, Growl, Keys, Bell, Glass. Any voice works on either track.
+* **FM:** how bright and edgy. 50 is the voice as designed.
+* **Ratio:** the pitch of the FM overtone, x0.5 to x7.
+* **Decay:** how long a note lasts. On the bass, 100 means hold for the whole step.
+* **Bite:** how long the bright edge at the start of a note lasts.
+* **Glide:** the bass slides between overlapping notes. **Spread:** pings alternate left and right.
+* **Step locks:** ALGORITHM level, PRESETS cutoff, SELECT delay mix (ping only).
+* The picture shows the real waveform, the note's shape over 2 seconds, the filter curve, or the ping's repeats.
+
 ### Master and EQ
-* **Master:** a meter for A, B and the output, in dB, with peak hold. Level 80 is normal, 100 is 4 dB louder. The processor load shows under the meters.
+* **Master:** a meter for A, B, bass, ping and the output, in dB, with peak hold. Level 80 is normal, 100 is 4 dB louder. The processor load shows under the meters.
 * **EQ:** 8 bands a track. KNOB 1 picks the band, then set its frequency, gain and Q.
 
 | Band | Type | Controls |
@@ -137,6 +156,7 @@ Gain is ±15 dB. The picture shows the whole curve from 20 Hz to 20 kHz.
 3. **Hold** a key for a second: save the selected track into that slot.
 
 * A sound slot holds the synth, the delay, the reverb send and the EQ. It leaves the level and the shared reverb alone.
+* Bass and ping sounds can swap with each other, but not with chord sounds.
 * Loading can be undone: EDIT held for a pattern, ARP held for a sound.
 * Saving a slot stops the sound for a moment.
 
@@ -165,7 +185,6 @@ Nothing changes by itself. Each press is one roll, on the selected track.
 | Feature | Status |
 | --- | --- |
 | Digitakt clock sync | Planned |
-| Sequencers for the bass and the FM ping | Planned |
 | Keep the metronome click out of recordings | Planned |
 
 ## Working on it

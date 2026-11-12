@@ -14,12 +14,13 @@
  *               Length) */
 
 enum { DE_PLAY, DE_PATTERN, DE_OSC, DE_FILT, DE_AENV, DE_FENV, DE_E1, DE_E2, DE_L1, DE_L2, DE_DELAY, DE_REVERB, DE_REVERB2, DE_DELAY2,
-       DE_MASTER, DE_EQ, DE_RANDOM, DE_NPAGE };
+       DE_MASTER, DE_EQ, DE_RANDOM, DE_V1, DE_V2, DE_V3, DE_V4, DE_NPAGE };
 /* a page's control: a synth parameter (SY_*), a mix parameter (DE_MX + MX_*), the EQ page's band (DE_ID_BAND), a
  * track's level (DE_ID_LVL + the track) */
 #define DE_MX 2000
 #define DE_ID_BAND 3000
 #define DE_ID_LVL 4000
+#define DE_VP 6000                               /* (+ VP_*: the bass's or the ping's parameter) */
 #define DE_ID_RND 5000                           /* (+ 0..3: the Random page's Density, Variation, Length, Offbeat) */
 /* the sound pages: each its four knobs (a synth parameter, SY_*), and ALGORITHM's and PRESETS' (-1 none) */
 static const int16_t DE_KNOBS[DE_NPAGE][6] = {
@@ -36,13 +37,17 @@ static const int16_t DE_KNOBS[DE_NPAGE][6] = {
     {SY_RDECAY, SY_RSIZE, SY_RPRE, SY_RMIX, SY_RWIDTH, SY_RHICUT},
     {SY_RDAMP, SY_RDIFF, SY_RMODD, SY_RMODR, SY_RLOW, SY_RFREEZE},
     {SY_DWIDTH, SY_DBLUR, SY_DMODE, SY_DPING, -1, -1},
-    {DE_ID_LVL, DE_ID_LVL + 1, -1, -1, -1, -1},
+    {DE_ID_LVL, DE_ID_LVL + 1, DE_ID_LVL + 2, DE_ID_LVL + 3, -1, -1},
     {DE_ID_BAND, -1, -1, -1, -1, -1},            /* (the band's Freq, Gain, Q: de_kid) */
     {DE_ID_RND, DE_ID_RND + 1, DE_ID_RND + 2, DE_ID_RND + 3, -1, -1},
+    {DE_VP + VP_VOICE, DE_VP + VP_FM, DE_VP + VP_RATIO, DE_VP + VP_FB, -1, -1},
+    {DE_VP + VP_ATT, DE_VP + VP_DEC, DE_VP + VP_MDEC, DE_VP + VP_GLIDE, -1, -1},
+    {DE_VP + VP_CUT, DE_VP + VP_DRIVE, DE_VP + VP_LEVEL, DE_VP + VP_REV, -1, -1},
+    {DE_VP + VP_DTIME, DE_VP + VP_DFB, DE_VP + VP_DMIX, DE_VP + VP_DTONE, -1, -1},
 };
 static const char *const DE_PAGE_NAME[DE_NPAGE] = {"PLAY", "PATTERN", "OSC", "FILTER", "AMP ENV", "FILTER ENV", "ENV 1",
                                                    "ENV 2", "LFO 1", "LFO 2", "DELAY", "REVERB", "REVERB 2", "DELAY 2",
-                                                   "MASTER", "EQ", "RANDOM"};
+                                                   "MASTER", "EQ", "RANDOM", "VOICE", "SHAPE", "TONE", "DELAY"};
 static const uint8_t DE_ENV_CYCLE[6] = {DE_OSC, DE_FILT, DE_AENV, DE_FENV, DE_E1, DE_E2};
 static int de_sound_page(int p) { return p >= DE_OSC && p < DE_NPAGE; }
 static int de_band(void);
@@ -195,12 +200,13 @@ static void de_spage_set(int p)                  /* step edit's page of 16 steps
  * each track's key, pattern and sound. Saved with GLO held, and by itself once things are quiet: stopped, nothing
  * touched for 3 s, nothing ringing (a save stops the audio for a moment while the flash is erased). */
 #define DE_SAVE_MAGIC 0x474E4544u                /* "DENG" */
-#define DE_SAVE_VER 3u                           /* (2: two tracks, each its key; 3: the steps' locks, the level and the EQ) */
+#define DE_SAVE_VER 4u                           /* (4: the bass and the ping) */
+#define DE_SAVE_VER_3 3u                           /* (2: two tracks, each its key; 3: the steps' locks, the level and the EQ) */
 typedef struct {
     uint8_t len, div, voicing, root, mode, rsv[3];
     uint8_t step[EN_SEQ_MAX][8];                 /* on, degree, octave, voicing, length, its three locks */
     int16_t syn[SY_N];
-    int8_t mx[MX_N];
+    int8_t mx[MX_N], vp[VP_N];
 } de_trk_save_t;
 typedef struct {
     uint32_t magic;
@@ -233,6 +239,8 @@ static void de_gather(de_save_t *v)
             k->syn[i] = en_trk[t].syn[i];
         for (i = 0; i < MX_N; i++)
             k->mx[i] = (int8_t)en_trk[t].mx[i];
+        for (i = 0; i < VP_N; i++)
+            k->vp[i] = (int8_t)en_trk[t].vp[i];
     }
 }
 static uint32_t de_sum(const de_save_t *v)       /* (has anything changed since the last save) */
@@ -289,10 +297,12 @@ static void de_load(void)                         /* the last save, to the engin
                     if (st.on && k->step[i][5 + j])
                         en_seq_lock(i, j, k->step[i][5 + j] - 1);
             }
-            for (i = 0; i < de_sv.nsyn; i++)
+            for (i = 0; i < de_sv.nsyn && t < EN_NCHORD; i++)
                 en_syn_set(i, k->syn[i]);
-            for (i = 0; i < MX_N; i++)
+            for (i = 0; i < MX_N && t < EN_NCHORD; i++)
                 en_mix_set(i, k->mx[i]);
+            for (i = 0; i < VP_N && t >= EN_NCHORD; i++)
+                en_vp_set(i, k->vp[i]);
         }
         en_sel = (uint8_t)(de_sv.sel < EN_NTRK ? de_sv.sel : 0);
     }
@@ -327,6 +337,9 @@ static void de_init(void)
     de_load();
     de_saved_sum = 0;                            /* (compared once the engine has it all: de_autosave) */
 }
+static const char *const DE_TRK_SAY[EN_NTRK] = {"TRACK A", "TRACK B", "BASS", "PING"};
+static const char *const DE_TRK_TAG[EN_NTRK] = {"A", "B", "BS", "PG"};
+static int de_voice_trk(void) { return en_sel >= EN_NCHORD; }
 static void de_track(int t)                      /* the other track: the keys held let go first (theirs, the old one's) */
 {
     int i;
@@ -338,7 +351,7 @@ static void de_track(int t)                      /* the other track: the keys he
     de.step = -1;
     de.spage = 0;
     en_sel = (uint8_t)(t % EN_NTRK);
-    de_say(en_sel ? "TRACK B" : "TRACK A");
+    de_say(DE_TRK_SAY[en_sel % EN_NTRK]);
 }
 
 /* ---------------------------------------------------------------- input --- */
@@ -373,6 +386,11 @@ static void de_button(int b)                    /* a press */
         break;
     case B_ENV: {                                /* Osc, Filter, Amp env, Filter env, Env 1, Env 2, in turn */
         int i, at = -1;
+        if (de_voice_trk()) {                    /* (the bass, the ping: Voice, Shape, Tone; the ping's Delay) */
+            const int n = en_sel == EN_T_PING ? 4 : 3;
+            de.page = (uint8_t)(de.page >= DE_V1 && de.page < DE_V1 + n - 1 ? de.page + 1 : DE_V1);
+            break;
+        }
         for (i = 0; i < 6; i++)
             if (DE_ENV_CYCLE[i] == de.page)
                 at = i;
@@ -380,6 +398,10 @@ static void de_button(int b)                    /* a press */
         break;
     }
     case B_LFO:
+        if (de_voice_trk()) {
+            de_say("CHORD TRACKS ONLY");
+            break;
+        }
         de.page = de.page == DE_L1 ? DE_L2 : DE_L1;
         break;
     case B_EDIT:                                 /* (a tap) the Random page; there: a new pattern */
@@ -400,6 +422,13 @@ static void de_button(int b)                    /* a press */
         }
         break;
     case B_FX:                                   /* Delay, Delay 2, Reverb, Reverb 2, in turn */
+        if (de_voice_trk()) {
+            if (en_sel == EN_T_PING)
+                de.page = DE_V4;
+            else
+                de_say("NO DELAY ON BASS");
+            break;
+        }
         de.page = de.page == DE_DELAY ? DE_DELAY2 : de.page == DE_DELAY2 ? DE_REVERB : de.page == DE_REVERB ? DE_REVERB2 : DE_DELAY;
         break;
     case B_SEQ:
@@ -485,7 +514,7 @@ static void de_step_get(int i, en_step_t *t)
  * ENV held: the same with the sound (the synth, the delay, the plate's send, the EQ; not the level, not the plate). */
 #define DE_NSLOT 8
 #define DE_SLOT_MAGIC 0x544C5344u                /* "DSLT" */
-#define DE_SLOT_VER 1u
+#define DE_SLOT_VER 2u
 #define DE_SLOT_HOLD 800u                        /* a slot's key held: saved */
 typedef struct {
     uint8_t used, len, div, rsv;
@@ -493,7 +522,7 @@ typedef struct {
 } de_pslot_t;
 typedef struct {
     uint8_t used, rsv[3];
-    int8_t syn[SY_N], mx[MX_N];
+    int8_t syn[SY_N], mx[MX_N], vp[VP_N];        /* (used: 1 a chord track's sound, 2 the bass's or the ping's) */
 } de_sslot_t;
 typedef struct {
     uint32_t magic;
@@ -510,7 +539,7 @@ static struct {
 } de_pundo;
 static struct {
     uint8_t ok, trk;
-    int16_t syn[SY_N], mx[MX_N];
+    int16_t syn[SY_N], mx[MX_N], vp[VP_N];
 } de_sundo;
 static uint32_t de_rng;
 
@@ -581,6 +610,8 @@ static void de_snd_keep(void)
         de_sundo.syn[i] = en_syn[i];
     for (i = 0; i < MX_N; i++)
         de_sundo.mx[i] = en_mx[i];
+    for (i = 0; i < VP_N; i++)
+        de_sundo.vp[i] = en_vp[i];
 }
 static void de_syn_put(int p, int v)             /* a synth parameter, here and to the engine (clamped to its range) */
 {
@@ -597,11 +628,28 @@ static void de_mx_put(int p, int v)
     en_mix_set(p, v);
     en_mx[p] = (int16_t)v;
 }
+static void de_vp_put(int p, int v)
+{
+    v = v < VP_INFO[p].lo ? VP_INFO[p].lo : v > VP_INFO[p].hi ? VP_INFO[p].hi : v;
+    if (en_vp[p] == v)
+        return;
+    en_vp_set(p, v);
+    en_vp[p] = (int16_t)v;
+}
 static void de_sound_undo(void)
 {
     int i;
     if (!de_sundo.ok || de_sundo.trk != en_sel) {
         de_say("NOTHING TO UNDO");
+        return;
+    }
+    if (de_voice_trk()) {
+        for (i = 0; i < VP_N; i++) {
+            const int was = en_vp[i];
+            de_vp_put(i, de_sundo.vp[i]);
+            de_sundo.vp[i] = (int16_t)was;
+        }
+        de_say("SOUND BACK");
         return;
     }
     for (i = 0; i < SY_N; i++) {
@@ -632,7 +680,9 @@ static void de_slot_save(int snd, int k)
     int i;
     if (snd) {
         de_sslot_t *q = &de_slots.snd[k];
-        q->used = 1;
+        q->used = (uint8_t)(de_voice_trk() ? 2 : 1);
+        for (i = 0; i < VP_N; i++)
+            q->vp[i] = (int8_t)en_vp[i];
         for (i = 0; i < SY_N; i++)
             q->syn[i] = (int8_t)en_syn[i];
         for (i = 0; i < MX_N; i++)
@@ -662,7 +712,18 @@ static void de_slot_take(int snd, int k)
     }
     if (snd) {
         const de_sslot_t *q = &de_slots.snd[k];
+        if ((q->used == 2) != de_voice_trk()) {  /* (a chord's sound and a voice's: not each other's) */
+            de_say(q->used == 2 ? "A BASS OR PING SOUND" : "A CHORD SOUND");
+            return;
+        }
         de_snd_keep();
+        if (de_voice_trk()) {
+            for (i = 0; i < VP_N; i++)
+                if (i != VP_LEVEL)
+                    de_vp_put(i, q->vp[i]);
+            de_slot_msg("LOADED ", snd, k);
+            return;
+        }
         for (i = 0; i < SY_N; i++)
             if (!de_syn_shared(i))
                 de_syn_put(i, q->syn[i]);
@@ -777,7 +838,7 @@ static void de_roll_pattern(void)
             break;
         st[i].on = 1;
         st[i].deg = deg[de_ri(0, kinds) % kinds];   /* (the first, the root, twice as likely) */
-        st[i].oct = 2, st[i].voi = EN_VO_KEY, st[i].len = 1;
+        st[i].oct = (uint8_t)(en_sel == EN_T_PING ? de_ri(2, 3) : 2), st[i].voi = EN_VO_KEY, st[i].len = 1;
     }
     for (i = 0; i < n; i++)                      /* each held up to the next, as far as Length lets it */
         if (st[i].on) {
@@ -800,6 +861,31 @@ static const struct {
     {SY_2D, 30, 70}, {SY_2S, 0, 40}, {SY_2R, 30, 60}, {SY_L1RATE, 10, 55}, {SY_L2RATE, 8, 45},
 };
 #define DE_NRSND ((int)(sizeof DE_RSND / sizeof DE_RSND[0]))
+static void de_roll_voice(int full)              /* the bass's or the ping's sound: nudged, or new within what suits it */
+{
+    static const uint8_t NUDGE[7] = {VP_FM, VP_FB, VP_ATT, VP_DEC, VP_MDEC, VP_CUT, VP_DRIVE};
+    static const uint8_t PV[4] = {3, 5, 6, 7}, BR[4] = {0, 1, 1, 3};
+    const int ping = en_sel == EN_T_PING;
+    int i;
+    if (!full) {
+        for (i = 0; i < 7; i++)
+            de_vp_put(NUDGE[i], en_vp[NUDGE[i]] + de_ri(-5, 5));
+        de_say("SOUND NUDGED");
+        return;
+    }
+    de_vp_put(VP_VOICE, ping ? PV[de_ri(0, 3)] : de_ri(0, 4));
+    de_vp_put(VP_FM, de_ri(30, 80));
+    de_vp_put(VP_RATIO, ping ? de_ri(1, 7) : BR[de_ri(0, 3)]);
+    de_vp_put(VP_FB, de_ri(0, 2) ? 0 : de_ri(5, 40));
+    de_vp_put(VP_ATT, de_ri(0, ping ? 5 : 10));
+    de_vp_put(VP_DEC, ping ? de_ri(25, 65) : de_ri(0, 1) ? 100 : de_ri(55, 85));
+    de_vp_put(VP_MDEC, de_ri(30, 70));
+    de_vp_put(VP_GLIDE, ping ? de_ri(30, 90) : de_ri(0, 2) ? 0 : de_ri(15, 45));
+    de_vp_put(VP_CUT, ping ? de_ri(70, 100) : de_ri(55, 100));
+    de_vp_put(VP_DRIVE, de_ri(0, 1) ? 0 : de_ri(5, 40));
+    de_vp_put(VP_REV, ping ? de_ri(20, 55) : de_ri(0, 8));
+    de_say("NEW SOUND");
+}
 static void de_roll_sound(int full)
 {
     static const uint8_t WAVE[20] = {EN_WAVE_SAW, EN_WAVE_SAW, EN_WAVE_SAW, EN_WAVE_SAW, EN_WAVE_SAW, EN_WAVE_SAW, EN_WAVE_SAW,
@@ -809,6 +895,10 @@ static void de_roll_sound(int full)
     static const uint8_t DST[6] = {EN_MD_CUTOFF, EN_MD_CUTOFF, EN_MD_RESO, EN_MD_FOLD, EN_MD_DETUNE, EN_MD_ECHO};
     int i;
     de_snd_keep();
+    if (de_voice_trk()) {
+        de_roll_voice(full);
+        return;
+    }
     if (!full) {                                 /* a nudge: each knob a few steps, either way */
         for (i = 0; i < DE_NRSND; i++)
             de_syn_put(DE_RSND[i].id, en_syn[DE_RSND[i].id] + de_ri(-6, 6));
@@ -840,7 +930,20 @@ static void de_roll_sound(int full)
 static void de_roll_fx(void)
 {
     static const uint8_t TIME[8] = {3, 3, 3, 5, 5, 2, 4, 6};   /* 1/8. (the dub one) the likeliest, 1/4, 1/8, 1/4T, 1/4. */
+    if (en_sel == EN_T_BASS) {
+        de_say("NO DELAY ON BASS");
+        return;
+    }
     de_snd_keep();
+    if (en_sel == EN_T_PING) {
+        de_vp_put(VP_DTIME, TIME[de_ri(0, 7)]);
+        de_vp_put(VP_DFB, de_ri(30, 75));
+        de_vp_put(VP_DMIX, de_ri(25, 60));
+        de_vp_put(VP_DTONE, de_ri(30, 70));
+        de_vp_put(VP_REV, de_ri(20, 55));
+        de_say("NEW DELAY");
+        return;
+    }
     de_syn_put(SY_DSYNC, 1);
     de_syn_put(SY_DTIME, TIME[de_ri(0, 7)]);
     de_syn_put(SY_DFB, de_ri(35, 85));
@@ -905,12 +1008,18 @@ static void de_key(int key, int down)
 
 static int de_param_get(int id)                  /* a page's parameter's value now */
 {
+    if (id >= DE_VP)
+        return en_vp[(id - DE_VP) % VP_N];
+    if (id >= DE_ID_LVL && id < DE_ID_RND && id - DE_ID_LVL >= EN_NCHORD)
+        return en_trk[(id - DE_ID_LVL) % EN_NTRK].vp[VP_LEVEL];
     return id >= DE_ID_RND ? de.rnd[(id - DE_ID_RND) & 3] : id >= DE_ID_LVL ? en_trk[(id - DE_ID_LVL) % EN_NTRK].mx[MX_LEVEL] : id == DE_ID_BAND ? de_band()
            : id >= DE_MX ? en_mx[id - DE_MX] : id >= 0 ? en_syn[id] : 0;
 }
 static void de_param_range(int id, int *lo, int *hi)
 {
-    if (id >= DE_ID_LVL)
+    if (id >= DE_VP)
+        *lo = VP_INFO[(id - DE_VP) % VP_N].lo, *hi = VP_INFO[(id - DE_VP) % VP_N].hi;
+    else if (id >= DE_ID_LVL)
         *lo = 0, *hi = 100;
     else if (id == DE_ID_BAND)
         *lo = 0, *hi = EN_NEQ - 1;
@@ -927,14 +1036,22 @@ static void de_param_turn(int id, int d)         /* turned d detents: a click a 
     de_param_range(id, &lo, &hi);
     v = de_param_get(id) + d * (hi - lo > 40 ? 2 : 1);
     v = v < lo ? lo : v > hi ? hi : v;
-    if (id >= DE_ID_RND) {
+    if (id >= DE_VP) {
+        en_vp_set(id - DE_VP, v);
+        en_vp[(id - DE_VP) % VP_N] = (int16_t)v;
+    } else if (id >= DE_ID_RND) {
         de.rnd[(id - DE_ID_RND) & 3] = (uint8_t)v;
     } else if (id >= DE_ID_LVL) {                /* a track's level, whichever is selected */
         const uint8_t was = en_sel, t = (uint8_t)((id - DE_ID_LVL) % EN_NTRK);
         en_sel = t;
-        en_mix_set(MX_LEVEL, v);
+        if (t >= EN_NCHORD) {
+            en_vp_set(VP_LEVEL, v);
+            en_trk[t].vp[VP_LEVEL] = (int16_t)v;
+        } else {
+            en_mix_set(MX_LEVEL, v);
+            en_trk[t].mx[MX_LEVEL] = (int16_t)v;
+        }
         en_sel = was;
-        en_trk[t].mx[MX_LEVEL] = (int16_t)v;
     } else if (id == DE_ID_BAND) {
         de.band = (uint8_t)v;
     } else if (id >= DE_MX) {
@@ -949,7 +1066,10 @@ static const char *de_param_name(int id)
 {
     static const char *const F[EQ_NF] = {"Freq", "Gain", "Q"};
     static const char *const R[4] = {"Density", "Variation", "Length", "Offbeat"};
-    return id >= DE_ID_RND ? R[(id - DE_ID_RND) & 3] : id >= DE_ID_LVL ? (id - DE_ID_LVL ? "Level B" : "Level A") : id == DE_ID_BAND ? "Band"
+    static const char *const L[EN_NTRK] = {"Level A", "Level B", "Bass", "Ping"};
+    if (id >= DE_VP)
+        return id - DE_VP == VP_GLIDE && en_sel == EN_T_PING ? "Spread" : VP_INFO[(id - DE_VP) % VP_N].name;
+    return id >= DE_ID_RND ? R[(id - DE_ID_RND) & 3] : id >= DE_ID_LVL ? L[(id - DE_ID_LVL) % EN_NTRK] : id == DE_ID_BAND ? "Band"
            : id >= DE_MX ? (id - DE_MX == MX_LEVEL ? "Level" : F[(id - DE_MX - MX_EQ) % EQ_NF]) : id >= 0 ? SYN_INFO[id].name : "";
 }
 static void de_hz(char *b, float hz)             /* "98", "2.0K", "12K" */
@@ -974,6 +1094,20 @@ static void de_param_text(int id, char *b)        /* its value as shown */
     b[0] = 0;
     if (id < 0)
         return;
+    if (id >= DE_VP) {
+        const int q = id - DE_VP;
+        if (q == VP_VOICE)
+            de_cat(b, EN_VOICE_NAME[v % EN_NVOICE]);
+        else if (q == VP_RATIO)
+            de_cat(b, EN_RATIO_NAME[v % EN_NRATIO]);
+        else if (q == VP_DTIME)
+            de_cat(b, EN_DTIME_NAME[v % EN_NDTIME]);
+        else if (q == VP_DEC && en_sel == EN_T_BASS && v >= 100)
+            de_cat(b, "Hold");
+        else
+            de_num(b, v);
+        return;
+    }
     if (id == DE_ID_BAND) {
         de_cat(b, BAND[v % EN_NEQ]);
         return;
@@ -1073,6 +1207,8 @@ static void de_knob(int k, int d)               /* KNOB 1..4 (k 0..3) turned d d
             de.mode[en_sel] = DE_MODES[((at + d) % DE_NMODE + DE_NMODE) % DE_NMODE];
             en_set(P_MODE, de.mode[en_sel]);
         } else {
+            if (de_voice_trk())                  /* (one note: no voicing) */
+                return;
             de.voi[en_sel] = (uint8_t)(((int)de.voi[en_sel] + d % 3 + 3) % 3);
             en_voicing_set(de.voi[en_sel]);
         }
@@ -1094,14 +1230,16 @@ static void de_lock_turn(int which, int d)       /* the step held: a lock a step
                                                   * value); turned down past 0: none again */
 {
     static const char *const N[EN_NLK] = {"LEVEL ", "CUTOFF ", "DELAY MIX "};
-    static const uint8_t SRC[EN_NLK] = {SY_LEVEL, SY_CUT, SY_DMIX};
+    static const uint8_t SRC[EN_NLK] = {SY_LEVEL, SY_CUT, SY_DMIX}, VSRC[EN_NLK] = {VP_LEVEL, VP_CUT, VP_DMIX};
     char b[24];
     en_step_t t;
     int v;
     de_step_get(de.step, &t);
     if (!t.on)
         return;
-    v = (t.lock[which] ? t.lock[which] - 1 : en_syn[SRC[which]]) + 2 * d;
+    if (en_sel == EN_T_BASS && which == EN_LK_SEND)   /* (the bass: no delay) */
+        return;
+    v = (t.lock[which] ? t.lock[which] - 1 : de_voice_trk() ? en_vp[VSRC[which]] : en_syn[SRC[which]]) + 2 * d;
     v = v > 100 ? 100 : v;
     en_seq_lock(de.step, which, v < 0 ? -1 : v);
     en_seq[de.step].lock[which] = (uint8_t)(v < 0 ? 0 : v + 1);
@@ -1227,7 +1365,7 @@ static void de_draw_header(void)
     w = text_w(&FONT_T_B, t) + 8;
     cv_rect(0, 2, w, 19, DE_OR);                 /* (the page, inverted) */
     cv_text(4, 3, &FONT_T_B, t, DE_BG);
-    w = cv_text(w + 6, 3, &FONT_T_B, en_sel ? "B" : "A", DE_OR) + 2;   /* the track */
+    w = cv_text(w + 6, 3, &FONT_T_B, DE_TRK_TAG[en_sel % EN_NTRK], DE_OR) + 2;   /* the track */
     b[0] = 0;
     de_cat(b, EN_NOTE_NAME[de.root[en_sel] % 12]);
     de_cat(b, " ");
@@ -1507,7 +1645,7 @@ static void de_pic_reverb(void)                  /* the tail in seconds: the pre
 
 static void de_pic_master(void)                  /* the meters: track A, track B, the output; dB, the peak held 1.5 s */
 {
-    static const char *const N[EN_NMETER] = {"A", "B", "OUT"};
+    static const char *const N[EN_NMETER] = {"A", "B", "BS", "PG", "OUT"};
     static const int8_t TICK[5] = {-48, -36, -24, -12, 0};
     const uint32_t now = plat_ms();
     const int x0 = PX + 30, w = PW - 34;         /* -54 dB .. +6 dB across */
@@ -1521,7 +1659,7 @@ static void de_pic_master(void)                  /* the meters: track A, track B
         cv_text(x - text_w(&FONT_T_XS, b) / 2, PY + 68, &FONT_T_XS, b, DE_DIM);
     }
     for (i = 0; i < EN_NMETER; i++) {
-        const int y = PY + 2 + i * 22;
+        const int y = PY + 1 + i * 13;
         const float v = en_meter[i];
         float db, hd;
         en_meter[i] = 0.0f;                      /* (taken: the engine fills it again) */
@@ -1530,16 +1668,16 @@ static void de_pic_master(void)                  /* the meters: track A, track B
             de.mhold[i] = v, de.mhold_t[i] = now;
         db = 6.0206f * fm_log2f(fm_maxf(de.mpk[i], 1e-5f));
         hd = 6.0206f * fm_log2f(fm_maxf(de.mhold[i], 1e-5f));
-        cv_text(PX, y + 2, &FONT_T_B, N[i], i == en_sel ? DE_OR : DE_FG);
-        cv_rect(x0, y, w, 18, DE_LINE);
+        cv_text(PX, y - 1, &FONT_T_XS, N[i], i == en_sel ? DE_OR : DE_FG);
+        cv_rect(x0, y, w, 10, DE_LINE);
         if (db > -54.0f) {
             const int bw = (int)((fm_minf(db, 6.0f) + 54.0f) * (float)w * (1.0f / 60.0f)), z = 54 * w / 60;
-            cv_rect(x0, y, bw < z ? bw : z, 18, DE_OR);
+            cv_rect(x0, y, bw < z ? bw : z, 10, DE_OR);
             if (bw > z)                          /* (over full scale: into the clip) */
-                cv_rect(x0 + z, y, bw - z, 18, DE_FG);
+                cv_rect(x0 + z, y, bw - z, 10, DE_FG);
         }
         if (hd > -54.0f)
-            cv_rect(x0 + (int)((fm_minf(hd, 6.0f) + 54.0f) * (float)w * (1.0f / 60.0f)) - 1, y, 2, 18, DE_FG);
+            cv_rect(x0 + (int)((fm_minf(hd, 6.0f) + 54.0f) * (float)w * (1.0f / 60.0f)) - 1, y, 2, 10, DE_FG);
     }
 }
 static void de_pic_cpu(void)                     /* the audio's share of its time: the mean, the heaviest block lately */
@@ -1597,6 +1735,79 @@ static void de_pic_random(void)                  /* the track's pattern as it is
     cv_text(PX, PY + PH - 26, &FONT_T_XS, "EDIT  A NEW PATTERN     HELD  UNDO", DE_DIM);
     cv_text(PX, PY + PH - 12, &FONT_T_XS, "SAVE  SOUND      ARP  DELAY", DE_DIM);
 }
+static void de_pic_voice(void)                   /* the bass's or the ping's voice as struck: two cycles */
+{
+    static float v[112];
+    en_voice_wave(v, 112);
+    cv_rect(PX, PY + PH / 2, PW, 1, DE_GRID);
+    de_plot(PX, PY, PW, PH, v, 112, DE_OR);
+}
+static void de_pic_shape(void)                   /* the note's level over 2 s: the attack, the decay (the bass let go at 1 s) */
+{
+    const float att = 0.0005f * fm_exp2f((float)en_vp[VP_ATT] * 0.0864f), dec = 0.05f * fm_exp2f((float)en_vp[VP_DEC] * 0.0664f);
+    const int bass = en_sel == EN_T_BASS, hold = bass && en_vp[VP_DEC] >= 100;
+    float lv = 0.0f, at1 = 0.0f;
+    int i, py = PY + PH;
+    for (i = 0; i < PW; i++) {
+        const float t = 2.0f * (float)i / (float)PW;
+        int y;
+        if (bass && t >= 1.0f) {
+            if (at1 <= 0.0f)
+                at1 = lv;
+            lv = at1 * fm_expf(-6.9f * (t - 1.0f) / 0.04f);
+        } else if (t < att) {
+            lv = t / att;
+        } else {
+            lv = hold ? 1.0f : fm_expf(-6.9f * (t - att) / dec);
+        }
+        y = PY + PH - (int)(lv * (float)(PH - 4));
+        if (i)
+            cv_line(PX + i - 1, py, PX + i, y, DE_OR);
+        py = y;
+    }
+    if (bass)
+        cv_rect(PX + PW / 2, PY, 1, PH, DE_LINE);   /* (the note off) */
+    cv_rect(PX, PY + PH, PW, 1, DE_LINE);
+    de_axis(PX, PY + PH + 1, PW, 2.0f, 1.0f, "S");
+}
+static void de_pic_tone(void)                    /* the low-pass, 20 Hz .. 20 kHz, 0 .. -36 dB */
+{
+    static const float TICK[3] = {100.0f, 1000.0f, 10000.0f};
+    static const char *const TN[3] = {"100", "1K", "10K"};
+    const float fc = 40.0f * fm_exp2f((float)en_vp[VP_CUT] * 0.0864f);
+    int i, py = 0;
+    for (i = 0; i < 3; i++) {
+        const int x = PX + (int)((float)PW * fm_log2f(TICK[i] / 20.0f) / 9.966f);
+        cv_rect(x, PY, 1, PH, DE_GRID);
+        cv_text(x + 2, PY + PH - 12, &FONT_T_XS, TN[i], DE_DIM);
+    }
+    for (i = 0; i < PW; i += 2) {
+        const float x = 20.0f * fm_exp2f(9.966f * (float)i / (float)PW) / fc, x2 = x * x;
+        const float db = en_vp[VP_CUT] >= 100 ? 0.0f : -3.0103f * fm_log2f(1.0f + x2 * x2);
+        const int y = PY + 8 + (int)(fm_clampf(-db, 0.0f, 36.0f) * (float)(PH - 10) * (1.0f / 36.0f));
+        if (i)
+            cv_line(PX + i - 2, py, PX + i, y, DE_OR);
+        py = y;
+    }
+}
+static void de_pic_pdelay(void)                  /* the ping's repeats in seconds: each as Feedback leaves it */
+{
+    static const float BEATS[EN_NDTIME] = {0.25f, 0.3333f, 0.5f, 0.75f, 0.6667f, 1.0f, 1.5f, 2.0f, 3.0f, 4.0f};
+    float t = BEATS[en_vp[VP_DTIME] % EN_NDTIME] * 60.0f / (float)de.tempo, lv = (float)en_vp[VP_DMIX] * 0.01f;
+    const float fb = (float)en_vp[VP_DFB] * 0.0095f, span = 3.0f;
+    char b[12];
+    int n;
+    t = t > 0.999f ? 0.999f : t;
+    cv_rect(PX, PY + PH, PW, 1, DE_LINE);
+    cv_rect(PX, PY + 4, 3, PH - 4, DE_FG);       /* (the ping) */
+    for (n = 1; (float)n * t < span && lv > 0.02f; n++, lv *= fb)
+        cv_rect(PX + (int)((float)PW * (float)n * t / span), PY + PH - (int)((float)(PH - 4) * lv), 3, (int)((float)(PH - 4) * lv), DE_OR);
+    de_axis(PX, PY + PH + 1, PW, span, 1.0f, "S");
+    b[0] = 0;
+    de_num(b, (int)(t * 1000.0f + 0.5f));
+    de_cat(b, " MS");
+    cv_text(PX + PW - text_w(&FONT_T_XS, b), PY, &FONT_T_XS, b, DE_DIM);
+}
 static void de_touch_text(char *lab, char *val)  /* the control last turned: its name and value (for the big readout) */
 {
     const int id = de.touch < 6 ? de_kid(de.page, de.touch) : SY_DSYNC;
@@ -1650,6 +1861,10 @@ static void de_draw_main(void)
         case DE_MASTER: de_pic_master(), de_pic_cpu(); break;
         case DE_EQ: de_pic_eq(); break;
         case DE_RANDOM: de_pic_random(); break;
+        case DE_V1: de_pic_voice(); break;
+        case DE_V2: de_pic_shape(); break;
+        case DE_V3: de_pic_tone(); break;
+        case DE_V4: de_pic_pdelay(); break;
         default: de_pic_reverb(); break;
         }
         /* the extra controls: ALGORITHM, PRESETS (and the Delay's SELECT), on one line */
@@ -1774,11 +1989,12 @@ static void de_draw_foot(void)
             de_param_text(id[i], val[i]);
         }
     } else if (de.page == DE_PLAY) {
-        lab[0] = "Tempo", lab[1] = "Root", lab[2] = "Mode", lab[3] = "Voicing";
+        lab[0] = "Tempo", lab[1] = "Root", lab[2] = "Mode", lab[3] = de_voice_trk() ? "" : "Voicing";
         de_num(val[0], de.tempo);
         de_cat(val[1], EN_NOTE_NAME[de.root[en_sel] % 12]);
         de_upper(val[2], EN_MODE_NAME[de.mode[en_sel] % EN_NMODES], 12);
-        de_cat(val[3], DE_VO_NAME[de.voi[en_sel]]);
+        if (!de_voice_trk())
+            de_cat(val[3], DE_VO_NAME[de.voi[en_sel]]);
     } else {
         lab[0] = "Length", lab[1] = "Step", lab[2] = "Click", lab[3] = "";
         de_num(val[0], de_nsteps());

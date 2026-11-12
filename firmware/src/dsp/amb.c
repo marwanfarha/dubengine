@@ -17,6 +17,9 @@
 #define BARRIER() __asm__ volatile("" ::: "memory")
 #define BLK 256
 #define NT EN_NTRK
+#define NC EN_NCHORD                             /* (the chord tracks: the first two) */
+#define VT_BASS EN_T_BASS
+#define VT_PING EN_T_PING
 
 const char *const EN_NOTE_NAME[12] = {"C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"};
 /* (Ionian and Aeolian shown as Major and Minor) */
@@ -42,8 +45,8 @@ volatile uint32_t en_prof[EN_PROF_N];
 
 /* ------------------------------------------------------------ commands --- */
 /* a command: its kind and the track it is for (the one selected as it was posted), a byte, 16 bits */
-enum { C_SET, C_POOL, C_PANIC, C_KEY, C_VOICING, C_SEQ, C_STEP, C_SYN, C_BASS, C_PING, C_MIX, C_LOCK };
-#define QN 512u
+enum { C_SET, C_POOL, C_PANIC, C_KEY, C_VOICING, C_SEQ, C_STEP, C_SYN, C_BASS, C_PING, C_MIX, C_LOCK, C_VP };
+#define QN 1024u                                 /* (a boot's load: four tracks' steps and sounds) */
 static uint32_t q[QN];
 static volatile uint32_t q_w, q_r, q_drop;
 volatile uint8_t en_sel;
@@ -54,7 +57,7 @@ static void post(uint32_t c, int a, int b)
         q_drop++;
         return;
     }
-    q[w % QN] = (c | (uint32_t)(en_sel < NT ? en_sel : 0) << 7) << 24 | ((uint32_t)a & 0xFFu) << 16 | ((uint32_t)b & 0xFFFFu);
+    q[w % QN] = (c | (uint32_t)(en_sel < NT ? en_sel : 0) << 5) << 24 | ((uint32_t)a & 0xFFu) << 16 | ((uint32_t)b & 0xFFFFu);
     BARRIER();
     q_w = w + 1;
 }
@@ -79,6 +82,7 @@ EN_COLD void en_seq_step(int i, const en_step_t *st)      /* packed: on, degree 
 }
 EN_COLD void en_syn_set(int p, int v) { post(C_SYN, p, v); }
 EN_COLD void en_mix_set(int p, int v) { post(C_MIX, p, v); }
+EN_COLD void en_vp_set(int p, int v) { post(C_VP, p, v); }
 EN_COLD void en_seq_lock(int i, int which, int v)
 {
     post(C_LOCK, i & 0x3F, (which & 3) << 8 | (v < 0 ? 0 : v > 100 ? 101 : v + 1));
@@ -266,9 +270,7 @@ static const fmpatch_t FM_RUBBER = {4, 0.3f, {{1.0f, 1.0f, 0.0f, 1.0f}, {1.0f, 0
 static const fmpatch_t FM_PLUCK = {FM_ALG2, 0.0f, {{1.0f, 1.0f, 0.0f, 1.0f}, {3.0f, 0.55f, 0.035f, 0.0f}, {2.0f, 0.2f, 0.05f, 0.0f},
                                                    {1.0f, 0.1f, 0.1f, 0.0f}}};
 static const fmpatch_t FM_GROWL = {FM_ALG2, 0.0f, {{1.0f, 1.0f, 0.0f, 1.0f}, {1.0f, 0.44f, 0.07f, 0.09f}, {2.0f, 0.2f, 0.1f, 0.1f},
-                                                   {1.0f, 0.1f, 0.1f, 0.0f}}};/* (the patches the bass and the pings don't play yet: kept for their voices to come) */
-static const fmpatch_t *const FM_KEPT[] __attribute__((unused)) = {&FM_KEYS, &FM_PUNCH, &FM_PLUCK, &FM_GROWL};
-
+                                                   {1.0f, 0.1f, 0.1f, 0.0f}}};
 /* ------------------------------------------------- reverb: Dattorro's plate --- */
 /* J. Dattorro, "Effect Design, Part 1", JAES 1997 (as in FoMni): a predelay, four input diffusers,
  * then a figure-eight tank of two halves, each a modulated allpass, a delay, a damping lowpass, an
@@ -439,8 +441,8 @@ typedef struct {
           wph2, dk, dd;
 } tk_t;
 static tk_t tk[NT];
-static int16_t tape[NT][TAPE_N] EN_POOL;
-static int16_t eap[NT][EAP_FB];                  /* (int16 at 1/20000: +-1.6; in the RAM: the pool is the tapes' and the plate's) */
+static int16_t tape[NC][TAPE_N] EN_POOL;
+static int16_t eap[NC][EAP_FB];                  /* (int16 at 1/20000: +-1.6; in the RAM: the pool is the tapes' and the plate's) */
 static float pan_l[EN_NPAD], pan_r[EN_NPAD];     /* a chord's voices across the field */
 static float mixl[BLK], mixr[BLK], rsend[BLK], tl[BLK], tr[BLK], es[BLK], rs[BLK];
 static uint32_t sq_t;                            /* samples since the start */
@@ -709,15 +711,15 @@ static int syn_shared(int p)                     /* the plate's own: one for bot
 EN_COLD static void syn_cmd(int t, int p, int v)
 {
     int u;
-    if ((unsigned)p >= SY_N)
+    if ((unsigned)p >= SY_N || t >= NC)
         return;
-    for (u = 0; u < NT; u++)
+    for (u = 0; u < NC; u++)
         if (!tk[u].ready)
             syn_defaults(u);
     v = (int16_t)v;                              /* (posted as 16 bits: a negative depth back) */
     v = v < SYN_INFO[p].lo ? SYN_INFO[p].lo : v > SYN_INFO[p].hi ? SYN_INFO[p].hi : v;
     if (syn_shared(p))
-        for (u = 0; u < NT; u++)
+        for (u = 0; u < NC; u++)
             en_trk[u].syn[p] = (int16_t)v;
     else
         en_trk[t].syn[p] = (int16_t)v;
@@ -1002,7 +1004,7 @@ EN_COLD float en_eq_db(float hz)                 /* (the bands' analogue curves:
 }
 EN_COLD static void mix_cmd(int t, int p, int v)
 {
-    if ((unsigned)p >= MX_N)
+    if ((unsigned)p >= MX_N || t >= NC)
         return;
     v = (int16_t)v;
     v = v < en_mix_lo(p) ? en_mix_lo(p) : v > en_mix_hi(p) ? en_mix_hi(p) : v;
@@ -1079,6 +1081,22 @@ EN_COLD static int chord_voice(int t, int note, int voicing)   /* the triad on n
     syn_trig(t);
     return 1;
 }
+static void voice_on(int t, int note, float vel);
+EN_COLD static int strike(int t, int note, int voicing)   /* a track's note: A, B its chord; the bass, the ping the note
+                                                  * itself (two octaves under, an octave over); 0 if not in the scale */
+{
+    volatile en_trk_t *E = &en_trk[t];
+    if (t < NC)
+        return chord_voice(t, note, voicing);
+    if (!(E->pool >> (((note - E->root) % 12 + 12) % 12) & 1u))
+        return 0;
+    E->key_tri[0] = E->key_tri[1] = E->key_tri[2] = (uint8_t)note;
+    E->now_pc = (uint8_t)(((note % 12) + 12) % 12);
+    E->now_q = EN_Q_MAJ;
+    E->now_n++;
+    voice_on(t, note + (t == VT_BASS ? -24 : 12), 1.0f);
+    return 1;
+}
 static int base_note(int t) { return 60 + en_trk[t].root; }   /* the root's octave: C4 .. B4 */
 EN_COLD static int seq_note(int t, const en_step_t *st)
 {
@@ -1140,7 +1158,7 @@ EN_COLD static void key_chord(int t, int note, int on)
         }
         return;
     }
-    if (!chord_voice(t, note, E->voicing))
+    if (!strike(t, note, E->voicing))
         return;
     T->key_held = 1;
     T->lk[0] = T->lk[1] = T->lk[2] = 0;          /* (a key: no step's locks) */
@@ -1173,7 +1191,7 @@ EN_COLD static void seq_fire(int t)              /* a step begins: its chord, if
     {
         en_step_t s;
         s.deg = p->deg, s.oct = p->oct, s.voi = p->voi, s.len = p->len;
-        if (chord_voice(t, seq_note(t, &s), s.voi == EN_VO_KEY ? E->voicing : s.voi)) {
+        if (strike(t, seq_note(t, &s), s.voi == EN_VO_KEY ? E->voicing : s.voi)) {
             T->sq_gate = (float)s.len * step_samples(t) * 0.92f;
             T->lk[0] = p->lock[0], T->lk[1] = p->lock[1], T->lk[2] = p->lock[2];   /* (its locks, while it sounds) */
         }
@@ -1299,77 +1317,227 @@ static void seq_advance(int32_t *out, uint32_t k, float gain)   /* k samples pas
 }
 
 /* ------------------------------------------------- the bass, the pings --- */
-/* DUB-1's FM voices, kept for their own sequencers to come: the bass (Rubber: two pairs, an octave under, op 4 feeding
- * back), held as long as asked; the pings (Bell: 3.5 against 1, 7 against 2), six at once, each ringing out, left and
- * right in turn, a little into the plate */
-static struct {
+/* DUB-1's FM voices (four operators), each track's sound its own: any of the eight patches, the FM's amount, the
+ * modulator's ratio, op 4's feedback; an attack, a decay; a low-pass, a drive. The ping's delay: a small tape of its
+ * own (1 s at a quarter rate), darker each time round. */
+const char *const EN_VOICE_NAME[EN_NVOICE] = {"Sub", "Punch", "Rubber", "Pluck", "Growl", "Keys", "Bell", "Glass"};
+const char *const EN_RATIO_NAME[EN_NRATIO] = {"x0.5", "x1", "x1.5", "x2", "x3", "x4", "x5", "x7"};
+static const float RATIO_MUL[EN_NRATIO] = {0.5f, 1.0f, 1.5f, 2.0f, 3.0f, 4.0f, 5.0f, 7.0f};
+static const fmpatch_t FM_SUB = {FM_ALG2, 0.0f, {{1.0f, 1.0f, 0.0f, 1.0f}, {1.0f, 0.08f, 0.3f, 0.3f}, {2.0f, 0.1f, 0.1f, 0.0f},
+                                                 {1.0f, 0.1f, 0.1f, 0.0f}}};
+static const fmpatch_t FM_GLASS = {4, 0.0f, {{1.0f, 1.0f, 0.0f, 1.0f}, {5.07f, 0.32f, 0.3f, 0.05f}, {3.0f, 0.35f, 0.0f, 1.0f},
+                                             {9.1f, 0.12f, 0.1f, 0.0f}}};
+static const fmpatch_t *const VPATCH[EN_NVOICE] = {&FM_SUB, &FM_PUNCH, &FM_RUBBER, &FM_PLUCK, &FM_GROWL, &FM_KEYS, &FM_BELL,
+                                                   &FM_GLASS};
+const en_vp_info_t VP_INFO[VP_N] = {
+    {"Voice", 0, EN_NVOICE - 1, {2, 6}}, {"FM", 0, 100, {50, 50}}, {"Ratio", 0, EN_NRATIO - 1, {1, 1}}, {"Feedback", 0, 100, {0, 0}},
+    {"Attack", 0, 100, {0, 0}}, {"Decay", 0, 100, {100, 45}}, {"Bite", 0, 100, {50, 50}}, {"Glide", 0, 100, {0, 60}},
+    {"Cutoff", 0, 100, {100, 100}}, {"Drive", 0, 100, {0, 0}}, {"Level", 0, 100, {70, 70}}, {"Reverb", 0, 100, {0, 35}},
+    {"Time", 0, EN_NDTIME - 1, {3, 3}}, {"Feedback", 0, 100, {0, 50}}, {"Mix", 0, 100, {0, 40}}, {"Tone", 0, 100, {50, 50}},
+};
+typedef struct {
     fmvoice_t fm;
-    float amp, lv;
-    int32_t gate;
-    uint8_t on;
-} bass;
+    float env, vel, f, f_t, gl, gr;              /* the amp; the pitch now and wanted (a glide); the pan */
+    uint8_t st;                                  /* 0 off, 1 attack, 2 decay, 3 release */
+} fv_t;
 #define NPING 6
-static struct {
-    fmvoice_t fm;
-    float amp, gl, gr;
-    uint8_t on;
-} ping[NPING];
+static fv_t bassv, pingv[NPING];
 static uint8_t ping_next;
-EN_COLD static void bass_on(int note, int vel, int ms)
+static int32_t bass_api;                         /* (en_bass_note's: samples left of it) */
+static float vf_s[2][4], vf_c[4];                /* the low-passes' states (the bass's, the ping's left and right) */
+static float vl[BLK], vr[BLK];
+#define PD_N 11025
+static int16_t pd_buf[PD_N];
+static int pd_w, pd_ph;
+static int32_t pd_quiet = PD_N + 1;
+static float pd_acc, pd_lp, pd_p, pd_c;
+
+EN_COLD static void vp_cmd(int t, int p, int v)
 {
-    fm_note(&bass.fm, &FM_RUBBER, mtof((float)note), 1.0f, 1.0f, 1.0f);
-    bass.amp = (float)vel * (1.0f / 127.0f);
-    bass.gate = (int32_t)((float)ms * 0.001f * EN_SR);
-    bass.on = 1;
+    if ((unsigned)p >= VP_N || t < NC)
+        return;
+    v = (int16_t)v;
+    en_trk[t].vp[p] = (int16_t)(v < VP_INFO[p].lo ? VP_INFO[p].lo : v > VP_INFO[p].hi ? VP_INFO[p].hi : v);
 }
-EN_COLD static void ping_on(int note, int vel)
+static const fmpatch_t *vpatch(int t) { return VPATCH[(unsigned)en_trk[t].vp[VP_VOICE] % EN_NVOICE]; }
+static float vratio(int t) { return RATIO_MUL[(unsigned)en_trk[t].vp[VP_RATIO] % EN_NRATIO]; }
+static float vfb(int t, const fmpatch_t *p) { return fm_clampf(p->fb + 0.007f * (float)en_trk[t].vp[VP_FB], 0.0f, 0.7f); }
+EN_COLD static void voice_on(int t, int note, float vel)
 {
-    const int k = ping_next;
-    const float p = (k & 1 ? 0.68f : 0.32f) * (FM_PI / 2.0f);
-    ping_next = (uint8_t)((k + 1) % NPING);
-    fm_note(&ping[k].fm, &FM_BELL, mtof((float)note), 1.0f, 1.0f, 1.0f);
-    ping[k].amp = (float)vel * (1.0f / 127.0f);
-    ping[k].gl = fm_cosf(p);
-    ping[k].gr = fm_sinf(p);
-    ping[k].on = 1;
-}
-static void render_voices(uint32_t n)            /* into mixl, mixr (and the pings a little into rsend) */
-{
-    uint32_t j, u;
-    int k;
-    if (bass.on) {
-        for (j = 0; j < n; j += 32u) {
-            const uint32_t m = n - j < 32u ? n - j : 32u;
-            fm_ctl(&bass.fm, &FM_RUBBER, FM_RUBBER.alg, 1.0f);
-            for (u = 0; u < m; u++) {
-                float x;
-                bass.lv += ((bass.gate > 0 ? bass.amp : 0.0f) - bass.lv) * (bass.gate > 0 ? 0.01f : 0.002f);
-                x = sat(fm_sample(&bass.fm, FM_RUBBER.alg, FM_RUBBER.fb, 1.0f) * bass.lv * 0.6f);
-                mixl[j + u] += x * 0.5f;
-                mixr[j + u] += x * 0.5f;
-                if (bass.gate > 0)
-                    bass.gate--;
-            }
-        }
-        if (bass.gate <= 0 && bass.lv < 1e-4f)
-            bass.on = 0, bass.lv = 0.0f;
+    volatile en_trk_t *E = &en_trk[t];
+    const float f = mtof((float)note);
+    fv_t *v;
+    if (t == VT_BASS) {
+        v = &bassv;
+        v->f_t = f;
+        if (!v->st || E->vp[VP_GLIDE] <= 0)      /* (a note over another, Glide up: it slides there) */
+            v->f = f;
+    } else {
+        const int k = ping_next;
+        const float pos = (0.5f + (k & 1 ? 0.4f : -0.4f) * (float)E->vp[VP_GLIDE] * 0.01f) * (FM_PI / 2.0f);   /* (Spread) */
+        ping_next = (uint8_t)((k + 1) % NPING);
+        v = &pingv[k];
+        v->f = v->f_t = f;
+        v->gl = fm_cosf(pos);
+        v->gr = fm_sinf(pos);
     }
-    for (k = 0; k < NPING; k++) {
-        if (!ping[k].on)
-            continue;
-        for (j = 0; j < n; j += 32u) {
-            const uint32_t m = n - j < 32u ? n - j : 32u;
-            fm_ctl(&ping[k].fm, &FM_BELL, FM_BELL.alg, 1.0f);
-            for (u = 0; u < m; u++) {
-                const float x = fm_sample(&ping[k].fm, FM_BELL.alg, FM_BELL.fb, 1.0f) * ping[k].amp * 0.22f;
-                mixl[j + u] += x * ping[k].gl;
-                mixr[j + u] += x * ping[k].gr;
-                rsend[j + u] += x * 0.4f;
-            }
-            ping[k].amp *= 0.9966f;              /* (~0.5 s to -60 dB... a short blip: 32 samples a step) */
+    fm_note(&v->fm, vpatch(t), v->f, vratio(t), 1.0f, fm_exp2f((float)(E->vp[VP_MDEC] - 50) * 0.06f));
+    v->vel = vel;
+    v->st = 1;
+}
+EN_COLD void en_voice_wave(float *w, int n)
+{
+    const int t = en_sel;
+    fmvoice_t fm = {{0.0f, 0.0f, 0.0f, 0.0f}, {0.0f}, {0.0f}, {0.0f}, {0.0f}, 0.0f, 0.0f};
+    int i;
+    if (t < NC || t >= NT || n < 2) {
+        for (i = 0; i < n; i++)
+            w[i] = 0.0f;
+        return;
+    }
+    fm_note(&fm, vpatch(t), 2.0f * EN_SR / (float)n, vratio(t), 1.0f, 1.0f);
+    fm_ctl(&fm, vpatch(t), vpatch(t)->alg, (float)en_trk[t].vp[VP_FM] * 0.02f);
+    for (i = 0; i < n; i++)
+        w[i] = fm_clampf(fm_sample(&fm, vpatch(t)->alg, vfb(t, vpatch(t)), 1.0f) * 0.65f, -1.0f, 1.0f);
+}
+static void voice_run(int t, fv_t *v, uint32_t n, int gate)   /* a voice, n samples on: into vl (the ping: vl and vr) */
+{
+    volatile en_trk_t *E = &en_trk[t];
+    const fmpatch_t *p = vpatch(t);
+    const int alg = p->alg, bass = t == VT_BASS;
+    const float ms = (float)E->vp[VP_FM] * 0.02f, fb = vfb(t, p),
+                att = 1.0f / (0.0005f * fm_exp2f((float)E->vp[VP_ATT] * 0.0864f) * EN_SR),   /* 0.5 .. 200 ms */
+                dk = bass && E->vp[VP_DEC] >= 100 ? 1.0f   /* (the bass at 100: held) */
+                     : fm_expf(-6.9f / (0.05f * fm_exp2f((float)E->vp[VP_DEC] * 0.0664f) * EN_SR)),   /* 50 ms .. 5 s */
+                rk = fm_expf(-6.9f / (0.04f * EN_SR));
+    uint32_t j, u;
+    for (j = 0; j < n && v->st; j += 32u) {
+        const uint32_t m = n - j < 32u ? n - j : 32u;
+        if (bass && v->f != v->f_t) {            /* the glide: to 300 ms */
+            const float tau = (float)E->vp[VP_GLIDE] * 0.003f * EN_SR;
+            v->f += (v->f_t - v->f) * (tau > (float)m ? (float)m / tau : 1.0f);
+            if (fm_fabsf(v->f_t - v->f) < 0.02f)
+                v->f = v->f_t;
+            fm_tune(&v->fm, p, v->f, vratio(t), 1.0f);
         }
-        if (ping[k].amp < 1e-4f)
-            ping[k].on = 0;
+        fm_ctl(&v->fm, p, alg, ms);
+        for (u = 0; u < m; u++) {
+            float x;
+            if (v->st == 1) {
+                if ((v->env += att) >= 1.0f)
+                    v->env = 1.0f, v->st = 2;
+            } else if (v->st == 2) {
+                if (bass && !gate)
+                    v->st = 3;
+                else
+                    v->env *= dk;
+            } else {
+                v->env *= rk;
+            }
+            x = fm_sample(&v->fm, alg, fb, 1.0f) * v->env * v->vel;
+            if (bass) {
+                vl[j + u] += x;
+            } else {
+                vl[j + u] += x * v->gl;
+                vr[j + u] += x * v->gr;
+            }
+        }
+        if (v->st >= 2 && v->env < 1e-4f)
+            v->st = 0, v->env = 0.0f;
+    }
+}
+static inline float vlp(float *z, float x)       /* (the low-pass: a TPT SVF step, vf_c's) */
+{
+    const float v3 = x - z[1], v1 = vf_c[0] * z[0] + vf_c[1] * v3, v2 = z[1] + vf_c[1] * z[0] + vf_c[2] * v3;
+    z[0] = 2.0f * v1 - z[0];
+    z[1] = 2.0f * v2 - z[1];
+    return v2;
+}
+static void voice_mix(int t, uint32_t n, float *pk)   /* vl (and vr): the drive, the low-pass, the level; into the mix */
+{
+    volatile en_trk_t *E = &en_trk[t];
+    const tk_t *T = &tk[t];
+    const int ping = t == VT_PING, lv = T->lk[EN_LK_LEVEL] ? T->lk[EN_LK_LEVEL] - 1 : E->vp[VP_LEVEL],
+              cv = T->lk[EN_LK_CUTOFF] ? T->lk[EN_LK_CUTOFF] - 1 : E->vp[VP_CUT];
+    const float g = (float)(lv * lv) * (1.0f / 4900.0f) * (ping ? 0.22f : 0.3f), d = (float)E->vp[VP_DRIVE] * 0.01f,
+                dg = 1.0f + 7.0f * d, dn = (1.0f + 0.5f * d) / dg, rev = (float)E->vp[VP_REV] * 0.011f,
+                dmix = ping ? (float)(T->lk[EN_LK_SEND] ? T->lk[EN_LK_SEND] - 1 : E->vp[VP_DMIX]) * 0.01f : 0.0f,
+                dfb = (float)E->vp[VP_DFB] * 0.0095f, dtc = 0.15f + 0.8f * (float)E->vp[VP_DTONE] * 0.01f;
+    float *z = vf_s[ping], a = 0.0f;
+    int dlen = (int)(DTIME_BEATS[(unsigned)E->vp[VP_DTIME] % EN_NDTIME] * 60.0f / (float)en_tempo * 11025.0f);
+    uint32_t j;
+    dlen = dlen < 1 ? 1 : dlen > PD_N - 2 ? PD_N - 2 : dlen;
+    if (cv < 100)
+        svf_coefs(vf_c, 40.0f * fm_exp2f((float)cv * 0.0864f), 1.2f);
+    for (j = 0; j < n; j++) {
+        float l = vl[j], r = ping ? vr[j] : 0.0f;
+        if (d > 0.0f) {
+            l = sat(l * dg) * dn;
+            if (ping)
+                r = sat(r * dg) * dn;
+        }
+        if (cv < 100) {
+            l = vlp(z, l);
+            if (ping)
+                r = vlp(z + 2, r);
+        }
+        l *= g;
+        r = ping ? r * g : l;
+        rsend[j] += (l + r) * rev;
+        if (ping) {                              /* its delay */
+            float e;
+            pd_acc += (l + r) * 0.5f * dmix;
+            if (++pd_ph >= 4) {
+                int i0 = pd_w - dlen;
+                float rd, w;
+                pd_ph = 0;
+                rd = (float)pd_buf[i0 < 0 ? i0 + PD_N : i0] * (1.0f / 20000.0f);
+                pd_lp += dtc * (rd - pd_lp);
+                w = (pd_acc * 0.25f + 0.7f * sat(pd_lp * dfb * (1.0f / 0.7f))) * 20000.0f;
+                w = fm_fabsf(w) < 0.75f ? 0.0f : w + (w < 0.0f ? -0.5f : 0.5f);
+                if (++pd_w >= PD_N)
+                    pd_w = 0;
+                pd_buf[pd_w] = (int16_t)(w > 32767.0f ? 32767.0f : w < -32767.0f ? -32767.0f : w);
+                pd_quiet = pd_buf[pd_w] ? 0 : pd_quiet + 1;
+                pd_acc = 0.0f;
+                pd_p = pd_c;
+                pd_c = rd;
+            }
+            e = pd_p + (pd_c - pd_p) * (float)pd_ph * 0.25f;
+            l += e;
+            r += e;
+            rsend[j] += e * 0.2f;
+        }
+        a = fm_maxf(a, fm_maxf(fm_fabsf(l), fm_fabsf(r)));
+        mixl[j] += l;
+        mixr[j] += r;
+    }
+    z[0] = fm_flush(z[0]), z[1] = fm_flush(z[1]), z[2] = fm_flush(z[2]), z[3] = fm_flush(z[3]);
+    pd_lp = fm_flush(pd_lp);
+    pk[t] = a;
+}
+static void render_voices(uint32_t n, float *pk)  /* the bass and the pings, into mixl, mixr and rsend */
+{
+    uint32_t j;
+    int k, any = 0;
+    if (bassv.st) {
+        const tk_t *T = &tk[VT_BASS];
+        for (j = 0; j < n; j++)
+            vl[j] = 0.0f;
+        voice_run(VT_BASS, &bassv, n, T->key_held || T->sq_gate > 0.0f || bass_api > 0);
+        voice_mix(VT_BASS, n, pk);
+    }
+    if (bass_api > 0)
+        bass_api -= (int32_t)n;
+    for (k = 0; k < NPING; k++)
+        any |= pingv[k].st;
+    if (any || pd_quiet <= PD_N) {
+        for (j = 0; j < n; j++)
+            vl[j] = vr[j] = 0.0f;
+        for (k = 0; k < NPING; k++)
+            if (pingv[k].st)
+                voice_run(VT_PING, &pingv[k], n, 0);
+        voice_mix(VT_PING, n, pk);
     }
 }
 
@@ -1385,7 +1553,7 @@ static void render_chunk(int32_t *out, uint32_t n, float gain)
         mixl[j] = mixr[j] = rsend[j] = 0.0f;
     {
         PROF_B(p1);
-        for (t = 0; t < NT; t++) {
+        for (t = 0; t < NC; t++) {
             tk_t *T = &tk[t];
             float dk = T->dk, dd = T->dd;
             for (j = 0; j < n; j++)
@@ -1431,7 +1599,7 @@ static void render_chunk(int32_t *out, uint32_t n, float gain)
     }
     {
         PROF_B(p2);
-        render_voices(n);
+        render_voices(n, pk);
         PROF_E(2, p2);
     }
     {
@@ -1510,6 +1678,10 @@ EN_COLD static void trk_reset(int t)
     T->amp_s = 0.0f;
     T->len = 0.0f;
     T->lk[0] = T->lk[1] = T->lk[2] = 0;
+    for (i = 0; i < VP_N; i++)
+        E->vp[i] = VP_INFO[i].def[t == VT_PING];
+    if (t >= NC)                                 /* (the bass, the ping: no synth, no tape, no EQ) */
+        return;
     syn_defaults(t);
     for (i = 0; i < MX_N; i++)
         mix_cmd(t, i, en_mix_def(i));
@@ -1524,6 +1696,8 @@ EN_COLD static void quiet(void)                  /* everything silent, now: the 
         for (i = 0; i < NENV; i++)
             T->env[i].lv = 0.0f, T->env[i].st = ST_IDLE;
         T->amp_s = 0.0f;
+        if (t >= NC)
+            continue;
         for (i = 0; i < TAPE_N; i++)
             tape[t][i] = 0;
         for (i = 0; i < EAP_FB; i++)
@@ -1532,9 +1706,12 @@ EN_COLD static void quiet(void)                  /* everything silent, now: the 
         T->quiet = TAPE_N + 4 * EAP_FB + 1;
         T->s[0] = T->s[1] = T->s[2] = T->s[3] = 0.0f;
     }
-    bass.on = 0, bass.lv = 0.0f;
+    bassv.st = 0, bassv.env = 0.0f, bass_api = 0;
     for (i = 0; i < NPING; i++)
-        ping[i].on = 0;
+        pingv[i].st = 0, pingv[i].env = 0.0f;
+    for (i = 0; i < PD_N; i++)
+        pd_buf[i] = 0;
+    pd_quiet = PD_N + 1, pd_acc = pd_lp = pd_p = pd_c = 0.0f;
     plate_init();
     pl_ol = pl_or = pl_acc = 0.0f;
     ck_amp = 0.0f;
@@ -1543,14 +1720,14 @@ static void drain(void)
 {
     while (q_r != q_w) {
         const uint32_t w = q[q_r % QN];
-        const int t = (int)(w >> 31), c = (int)(w >> 24 & 0x7Fu), a = (int)(w >> 16 & 0xFFu), b = (int)(w & 0xFFFFu);
+        const int t = (int)(w >> 29), c = (int)(w >> 24 & 0x1Fu), a = (int)(w >> 16 & 0xFFu), b = (int)(w & 0xFFFFu);
         volatile en_trk_t *E = &en_trk[t];
         int u;
         switch (c) {
         case C_SET:
             if (a == P_TEMPO) {
                 en_tempo = (uint8_t)(b < EN_TEMPO_MIN ? EN_TEMPO_MIN : b > EN_TEMPO_MAX ? EN_TEMPO_MAX : b);
-                for (u = 0; u < NT; u++)
+                for (u = 0; u < NC; u++)
                     echo_time(u);
             } else if (a == P_ROOT) {
                 E->root = (uint8_t)(b % 12);
@@ -1581,8 +1758,12 @@ static void drain(void)
             if ((b >> 8 & 3) < EN_NLK)
                 E->seq[a & 0x3F].lock[b >> 8 & 3] = (uint8_t)(b & 0xFF);
             break;
-        case C_BASS: bass_on(b & 0x7F, a ? a : 1, (b >> 7) * 20); break;
-        case C_PING: ping_on(b & 0x7F, a ? a : 1); break;
+        case C_BASS:
+            voice_on(VT_BASS, b & 0x7F, (float)(a ? a : 1) * (1.0f / 127.0f));
+            bass_api = (int32_t)((float)((b >> 7) * 20) * 0.001f * EN_SR);
+            break;
+        case C_PING: voice_on(VT_PING, b & 0x7F, (float)(a ? a : 1) * (1.0f / 127.0f)); break;
+        case C_VP: vp_cmd(t, a, b); break;
         default: break;
         }
         BARRIER();
@@ -1600,7 +1781,6 @@ EN_COLD void en_init(void)
         pan_l[i] = fm_cosf(p);
         pan_r[i] = fm_sinf(p);
     }
-    (void)fm_tune;                               /* (a slide: the bass's, to come) */
     q_r = q_w;
     en_tempo = 122, en_seq_playing = en_seq_rec = 0, en_metro_on = 0, en_metro_lvl = 60;
     for (t = 0; t < NT; t++)

@@ -78,11 +78,11 @@ int main(void)
     run_ms(8000);
     /* a track alone: silent A, B playing; the meters tell them apart */
     sel(1), en_syn_set(SY_DMIX, 0), en_syn_set(SY_RMIX, 0);
-    en_meter[0] = en_meter[1] = en_meter[2] = 0.0f;
+    en_meter[0] = en_meter[1] = en_meter[EN_NTRK] = 0.0f;
     en_key_chord(62, 1);
     run_ms(300);
-    CHECK(en_meter[1] > 0.02f && en_meter[0] < 0.002f && en_meter[2] > 0.02f, "the meters: B alone (%.4f %.4f %.4f)",
-          (double)en_meter[0], (double)en_meter[1], (double)en_meter[2]);
+    CHECK(en_meter[1] > 0.02f && en_meter[0] < 0.002f && en_meter[EN_NTRK] > 0.02f, "the meters: B alone (%.4f %.4f %.4f)",
+          (double)en_meter[0], (double)en_meter[1], (double)en_meter[EN_NTRK]);
     en_key_chord(62, 0);
     run_ms(4000);
     /* the level: B's down, B quieter; back at 80 as it was */
@@ -140,6 +140,31 @@ int main(void)
     run_ms(6000);
     a = run_ms(200);
     CHECK(a < 0.5f, "and is gone (%.1f)", (double)a);
+    /* the bass and the ping as tracks: a key in the scale plays its note (the meters tell which); outside it, nothing */
+    sel(EN_T_BASS), en_set(P_ROOT, 0), en_set(P_MODE, MODE_AEOLIAN);
+    sel(EN_T_PING), en_set(P_ROOT, 0), en_set(P_MODE, MODE_AEOLIAN);
+    run_ms(20);
+    en_meter[EN_T_BASS] = en_meter[EN_T_PING] = 0.0f;
+    sel(EN_T_BASS), en_key_chord(61, 1), run_ms(100), en_key_chord(61, 0);
+    CHECK(en_meter[EN_T_BASS] == 0.0f, "the bass: a key outside the scale is silent");
+    en_key_chord(60, 1), run_ms(200);
+    CHECK(en_meter[EN_T_BASS] > 0.02f && en_meter[EN_T_PING] == 0.0f && en_trk[EN_T_BASS].key_note == 60, "the bass plays (%.3f)",
+          (double)en_meter[EN_T_BASS]);
+    en_key_chord(60, 0), run_ms(500), a = run_ms(100);
+    CHECK(a < 0.5f, "let go: gone (%.2f)", (double)a);
+    /* Decay under 100: it dies away while held */
+    en_vp_set(VP_DEC, 20), en_key_chord(60, 1), run_ms(100), a = run_ms(100), run_ms(1500), b = run_ms(100), en_key_chord(60, 0);
+    CHECK(b < 0.1f * a, "the bass's Decay (%.2f then %.2f)", (double)a, (double)b);
+    en_vp_set(VP_DEC, 100), run_ms(300);
+    /* the ping's delay: with Mix up a repeat comes a dotted eighth later (375 ms at 120); at 0, none */
+    sel(EN_T_PING), en_vp_set(VP_REV, 0), en_vp_set(VP_DEC, 0), en_vp_set(VP_DMIX, 0);
+    en_key_chord(60, 1), run_ms(50), en_key_chord(60, 0), run_ms(250), a = run_ms(200);
+    en_vp_set(VP_DMIX, 80), run_ms(2000);
+    en_key_chord(60, 1), run_ms(50), en_key_chord(60, 0), run_ms(250), b = run_ms(200);
+    CHECK(a < 0.2f && b > 1.0f, "the ping's delay: none at Mix 0, a repeat at 80 (%.2f, %.2f)", (double)a, (double)b);
+    /* a parameter set on the ping leaves the bass's */
+    CHECK(en_trk[EN_T_BASS].vp[VP_DMIX] == VP_INFO[VP_DMIX].def[0] && en_trk[EN_T_PING].vp[VP_DMIX] == 80, "each its sound");
+    run_ms(6000);
     printf(fails ? "tracks: %d FAILED\n" : "tracks: all ok\n", fails);
     return fails != 0;
 }

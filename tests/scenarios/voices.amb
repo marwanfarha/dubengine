@@ -1,0 +1,149 @@
+# dubengine: the bass and the ping. HOME on the Play page goes round the tracks: A, B, BASS, PING. Each its key, its
+# pattern, its sound pages (ENV: Voice, Shape, Tone; the ping: Delay too)
+wav voices.wav
+wait 500
+tap HOME
+tap HOME
+wait 100
+expect track 2
+# the bass: a key plays one note, heard; its pattern by step edit
+peakreset
+key w0 down
+wait 300
+key w0 up
+expect peak_db_min -40
+wait 500
+tap REC
+tapkey w0
+tapkey w6
+tapkey w10
+# a step held: ALGORITHM its Level, PRESETS its Cutoff; SELECT nothing (the bass has no delay)
+key w0 down
+wait 50
+spin ALGO -5
+spin PRESET -10
+spin SELECT 5
+wait 50
+key w0 up
+wait 100
+expect lock0_0 60
+expect lock1_0 80
+expect lock2_0 -1
+tap REC
+expect seqon 3
+expect aseqon 0
+# its sound: ENV, the Voice page: Growl, more FM; Shape: Decay down, Glide up; Tone: Cutoff down, Drive up
+tap ENV
+wait 100
+expect page 17
+spin K1 2
+spin K2 10
+wait 50
+expect vp0 4
+expect vp1 70
+wait 60
+shot bassvoice.png
+tap ENV
+wait 100
+expect page 18
+spin K2 -10
+spin K4 10
+expect vp5 80
+expect vp7 20
+wait 60
+shot bassshape.png
+tap ENV
+wait 100
+expect page 19
+spin K1 -15
+spin K2 10
+expect vp8 70
+expect vp9 20
+wait 60
+shot basstone.png
+tap ENV
+wait 100
+expect page 17
+# LFO and FX: the chord tracks'; nothing changes
+tap LFO
+tap FX
+wait 100
+expect page 17
+# the ping: its own key (root up to G), its pattern, 12 steps
+tap HOME
+tap HOME
+wait 100
+expect track 3
+spin K2 2
+expect root 7
+expect croot 5
+tap SEQ
+spin K1 -4
+wait 100
+expect seqlen 12
+tap REC
+tapkey w1
+tapkey w4
+tapkey w9
+tap REC
+expect seqon 3
+# its sound: Glass; FX: its Delay page, Feedback up
+tap ENV
+spin K1 1
+expect vp0 7
+wait 60
+shot pingvoice.png
+tap FX
+wait 100
+expect page 20
+spin K2 10
+expect vp13 70
+wait 60
+shot pingdelay.png
+# it all plays: the bass's 16 steps against the ping's 12
+tap PLAY
+wait 3000
+wait 60
+shot playing.png
+tap PLAY
+wait 300
+# SAVE held: a new ping sound; ARP held: the one before
+press SAVE
+wait 1200
+release SAVE
+wait 200
+press ARP
+wait 1200
+release ARP
+wait 200
+expect vp0 7
+expect vp13 70
+# Master: KNOB 3 the bass's level, KNOB 4 the ping's
+tap GLO
+wait 100
+spin K3 -5
+spin K4 5
+wait 100
+expect cvp10 60
+expect dvp10 80
+key w1 down
+wait 300
+wait 60
+shot master4.png
+key w1 up
+# saved, and back after a restart
+wait 5000
+reboot
+wait 500
+expect cseqon 3
+expect dseqon 3
+expect dseqlen 12
+expect droot 7
+expect cvp0 4
+expect cvp8 70
+expect dvp0 7
+expect dvp13 70
+expect cvp10 60
+expect clock0_0 60
+expect clock1_0 80
+wavstop

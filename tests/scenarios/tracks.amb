@@ -49,6 +49,10 @@ wait 100
 expect track 1
 tap HOME
 wait 100
+expect track 2
+tap HOME
+tap HOME
+wait 100
 expect track 0
 expect root 0
 shot tracka.png
