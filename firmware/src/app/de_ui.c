@@ -63,6 +63,9 @@ static struct {
     uint32_t msg_t;
     char msg[24];
     uint32_t act_t;
+    int8_t touch;                                /* the control last turned (0..3 the knobs, 4 ALGORITHM, 5 PRESETS,
+                                                  * 6 SELECT), -1 none; and when */
+    uint32_t touch_t;
 } de;
 
 static int de_count(uint32_t p)
@@ -206,6 +209,7 @@ static void de_init(void)
     int i;
     memset(&de, 0, sizeof de);
     de.page = DE_PLAY;
+    de.touch = -1;
     de.oct = 1;
     de.step = -1;
     de.voicing = EN_VO_FIRST;
@@ -506,15 +510,15 @@ static void de_input(void)
     for (i = 0; i < 4; i++) {
         const int32_t d = plat_enc(EN_K1 + (int)i);
         if (d)
-            de_knob((int)i, (int)d), de.act_t = now;
+            de_knob((int)i, (int)d), de.act_t = de.touch_t = now, de.touch = (int8_t)i;
     }
     {   /* ALGORITHM and PRESETS: on Env 1, Env 2 the target and the depth; on the LFOs the sync */
         const int32_t da = plat_enc(EN_ALGO), dp = plat_enc(EN_PRESET);
         if (de_sound_page(de.page) && !(de.edit && de.step >= 0)) {
             if (da)
-                de_param_turn(de_kid(de.page, 4), (int)da), de.act_t = now;
+                de_param_turn(de_kid(de.page, 4), (int)da), de.act_t = de.touch_t = now, de.touch = 4;
             if (dp)
-                de_param_turn(de_kid(de.page, 5), (int)dp), de.act_t = now;
+                de_param_turn(de_kid(de.page, 5), (int)dp), de.act_t = de.touch_t = now, de.touch = 5;
         }
     }
     {   /* SELECT: on the Delay page, Sync or Free */
@@ -522,7 +526,7 @@ static void de_input(void)
         if (ds && de.page == DE_DELAY && !(de.edit && de.step >= 0)) {
             en_syn_set(SY_DSYNC, ds > 0 ? 0 : 1);
             en_syn[SY_DSYNC] = (int16_t)(ds > 0 ? 0 : 1);
-            de.act_t = now;
+            de.act_t = de.touch_t = now, de.touch = 6;
         }
     }
     if (btn || keys || ch)
@@ -531,175 +535,398 @@ static void de_input(void)
 }
 
 /* ---------------------------------------------------------------- screen --- */
-#define DE_HDR 30
-#define DE_MAIN 140
+/* Black and orange, after Elektron's screens: one accent (orange) for what's live or touched, white for values, grey for
+ * labels and scales, the Terminus bitmap font. Three bands: the header (the page, the key, the transport, the tempo),
+ * the middle (the chord and the pattern, or the page's picture), the footer (the four knobs, each with its value's bar).
+ * Every picture is drawn to scale from the values as heard: the LFO across a bar, the envelopes on a time axis, the
+ * oscillators as they sound (detune and fold, modulation included), the filter's curve where the cutoff is now, the
+ * delay's repeats and the reverb's tail in milliseconds and seconds. */
+#define DE_HDR 24
+#define DE_MAIN 144
 #define DE_FOOT (240 - DE_HDR - DE_MAIN)
+#define DE_BG RGB(0, 0, 0)
+#define DE_FG RGB(236, 236, 236)
+#define DE_DIM RGB(120, 120, 120)
+#define DE_LINE RGB(44, 44, 44)
+#define DE_GRID RGB(26, 26, 26)
+#define DE_OR RGB(255, 112, 16)                  /* the accent: live, touched, on */
+#define DE_ORD RGB(110, 46, 8)                   /* (and its dark: a range, a track) */
+#define DE_TOUCH_MS 1200u
+
+static void de_upper(char *d, const char *s, int n)   /* (labels in capitals, as the panel prints them) */
+{
+    int i;
+    for (i = 0; i < n - 1 && s[i]; i++)
+        d[i] = (char)(s[i] >= 'a' && s[i] <= 'z' ? s[i] - 32 : s[i]);
+    d[i] = 0;
+}
+static int de_touched(int i) { return de.touch == i && plat_ms() - de.touch_t < DE_TOUCH_MS; }
 
 static void de_draw_header(void)
 {
-    char b[24];
-    int32_t w;
-    cv_begin(240, DE_HDR, K_BG);
+    char b[24], t[16];
+    int32_t x, w;
+    const int edit = de.edit && de.step >= 0;
+    cv_begin(240, DE_HDR, DE_BG);
+    de_upper(t, edit ? "STEP" : DE_PAGE_NAME[de.page], sizeof t);
+    w = text_w(&FONT_T_B, t) + 8;
+    cv_rect(0, 2, w, 19, DE_OR);                 /* (the page, inverted) */
+    cv_text(4, 3, &FONT_T_B, t, DE_BG);
     b[0] = 0;
     de_cat(b, EN_NOTE_NAME[proj.par[P_ROOT] % 12]);
     de_cat(b, " ");
-    de_cat(b, EN_MODE_NAME[proj.par[P_MODE] % EN_NMODES]);
-    cv_text(8, 7, &FONT_B, b, K_TEXT);
+    de_upper(t, EN_MODE_NAME[proj.par[P_MODE] % EN_NMODES], 4);
+    de_cat(b, t);
+    x = cv_text(w + 6, 4, &FONT_T_S, b, DE_FG);
+    /* the transport, at the right: the tempo; the click; record (or edit); play */
     de_num(b, proj.par[P_TEMPO]);
-    de_cat(b, " BPM");
-    w = text_w(&FONT_S, b);
-    cv_text(232 - w, 7, &FONT_S, b, K_DIM);
-    if (en_seq_rec || de.edit) {                 /* the tag: REC (red) or EDIT */
-        const char *t = de.edit ? "EDIT" : "REC";
-        const int32_t tw = text_w(&FONT_S, t) + 10, x = 232 - w - tw - 8;
-        cv_rect(x, 6, tw, 18, de.edit ? K_ACC : K_FROST);
-        cv_text(x + 5, 7, &FONT_S, t, K_BG);
+    w = text_w(&FONT_T_B, b);
+    cv_text(238 - w, 3, &FONT_T_B, b, DE_FG);
+    x = 238 - w - 14;
+    if (en_metro_on) {                           /* (the click: a small metronome, two bars) */
+        cv_rect(x + 2, 6, 2, 12, DE_OR);
+        cv_rect(x + 6, 10, 2, 8, DE_OR);
     }
-    cv_rect(0, DE_HDR - 1, 240, 1, K_LINE);
+    x -= 14;
+    if (de.edit) {
+        cv_rect(x, 6, 10, 12, DE_OR);
+        cv_text(x + 2, 4, &FONT_T_XS, "E", DE_BG);
+    } else {                                      /* (record: a dot, orange while recording) */
+        const uint16_t c = en_seq_rec ? DE_OR : DE_LINE;
+        cv_rect(x + 2, 8, 6, 8, c);
+        cv_rect(x + 1, 9, 8, 6, c);
+    }
+    x -= 14;
+    {   /* (play: a triangle, orange while playing) */
+        const uint16_t c = en_seq_playing ? DE_OR : DE_DIM;
+        int k;
+        for (k = 0; k < 6; k++)
+            cv_rect(x + 2 + k, 6 + k, 1, 12 - 2 * k, c);
+    }
+    cv_rect(0, DE_HDR - 1, 240, 1, DE_LINE);
     cv_blit(0, 0);
 }
 
-static float de_sin(float t)                     /* sin(2 pi t), for the pictures */
+/* ---- the pictures: helpers */
+static float de_sin(float t)                     /* sin(2 pi t) */
 {
-    return fm_sin_turns(t - (float)(int)t + (t < 0.0f ? 1.0f : 0.0f));
-}
-static float de_wave(int w, float t, float fold)  /* one oscillator's picture, -1..1, t in turns, folded as the synth does */
-{
-    float x;
     t -= (float)(int)t;
-    x = w == EN_WAVE_SINE ? de_sin(t) : w == EN_WAVE_TRI ? (t < 0.5f ? 4.0f * t - 1.0f : 3.0f - 4.0f * t)
-        : w == EN_WAVE_SQUARE ? (t < 0.5f ? 1.0f : -1.0f) : 2.0f * t - 1.0f;
-    return de_sin(2.0f * x * (0.0625f + 0.8125f * fold) + 4.0f);
+    if (t < 0.0f)
+        t += 1.0f;
+    return fm_sin_turns(t);
 }
-static float de_lfo(int sh, float t)
+static float de_osc1(int w, float t)             /* one oscillator, -1..1, t in turns */
 {
-    static const float RND[8] = {0.6f, -0.3f, 0.9f, -0.8f, 0.1f, -0.5f, 0.4f, -0.1f};
+    t -= (float)(int)t;
+    if (t < 0.0f)
+        t += 1.0f;
+    return w == EN_WAVE_SINE ? de_sin(t) : w == EN_WAVE_TRI ? (t < 0.5f ? 4.0f * t - 1.0f : 3.0f - 4.0f * t)
+           : w == EN_WAVE_SQUARE ? (t < 0.5f ? 1.0f : -1.0f) : 2.0f * t - 1.0f;
+}
+static float de_lshape(int sh, float t, int cyc)   /* an LFO's shape, -1..1 (random: a held value a cycle) */
+{
+    static const float RND[16] = {0.62f, -0.35f, 0.91f, -0.78f, 0.12f, -0.55f, 0.43f, -0.08f,
+                                  -0.92f, 0.27f, 0.71f, -0.21f, 0.05f, -0.66f, 0.84f, -0.44f};
     return sh == EN_LS_TRI ? (t < 0.5f ? 4.0f * t - 1.0f : 3.0f - 4.0f * t) : sh == EN_LS_SAW ? 2.0f * t - 1.0f
-           : sh == EN_LS_SQUARE ? (t < 0.5f ? 1.0f : -1.0f) : sh == EN_LS_RANDOM ? RND[(int)(t * 8.0f) & 7] : de_sin(t);
+           : sh == EN_LS_SQUARE ? (t < 0.5f ? 1.0f : -1.0f) : sh == EN_LS_RANDOM ? RND[cyc & 15] : de_sin(t);
 }
-static void de_draw_sound(void)                  /* a sound page: its picture, and its targets */
+static void de_plot(int x0, int y0, int w, int h, const float *v, int n, uint16_t c)   /* v[0..n): -1..1, a line */
 {
-    const int pg = de.page, x0 = 12, w = 216, y0 = 36, h = DE_KNOBS[pg][4] >= 0 ? 52 : 80, ym = y0 + h / 2;
     int i, py = 0;
-    char b[32];
-    cv_rect(x0, ym, w, 1, K_LINE);
-    if (pg == DE_FILT) {                         /* the filter's response, 20 Hz .. 20 kHz across, its peak the Reso */
-        const float fc = 40.0f * fm_exp2f((float)en_syn[SY_CUT] * 0.0864f),
-                    k = 2.0f - 1.9f * (float)en_syn[SY_RESO] * 0.01f;
-        cv_rect(x0, ym, w, 1, K_BG);
-        cv_rect(x0, y0 + 24, w, 1, K_LINE);      /* (0 dB) */
-        for (i = 0; i <= w; i++) {
-            const float f = 20.0f * fm_exp2f(9.97f * (float)i / (float)w), r = f / fc, a = 1.0f - r * r, bq = k * r,
-                        g = 1.0f / fm_sqrtf(a * a + bq * bq), db = 20.0f * fm_log2f(g > 1e-6f ? g : 1e-6f) * 0.30103f;
-            int y = y0 + 24 - (int)(db * 1.2f);
-            y = y < y0 ? y0 : y > y0 + h ? y0 + h : y;
-            if (i)
-                cv_line(x0 + i - 1, py, x0 + i, y, K_PAD);
-            py = y;
-        }
-    } else if (pg == DE_DELAY) {                 /* the repeats: on the delay's time, each as Feedback leaves it, the
-                                                  * first as loud as Mix sends; the dry bar as loud as Mix leaves it */
-        static const float BEATS[EN_NDTIME] = {0.25f, 0.333f, 0.5f, 0.75f, 0.667f, 1.0f, 1.5f, 2.0f, 3.0f, 4.0f};
-        const float fb = fm_minf((float)en_syn[SY_DFB] * 0.01f, 1.0f), mx = (float)en_syn[SY_DMIX] * 0.01f,
-                    sp = en_syn[SY_DSYNC] ? 26.0f * BEATS[en_syn[SY_DTIME] % EN_NDTIME]
-                                          : fm_maxf(26.0f * en_delay_ms(en_syn[SY_DMS]) * 0.001f * (float)proj.par[P_TEMPO] / 60.0f, 3.0f);
-        float lv = fm_minf(2.0f * mx, 1.0f), x = (float)x0 + sp;
-        const int hd = (int)((float)(h - 4) * fm_minf(2.0f * (1.0f - mx), 1.0f));
-        cv_rect(x0, ym, w, 1, K_BG);
-        cv_rect(x0, y0 + h, w, 1, K_LINE);
-        if (hd > 0)
-            cv_rect(x0, y0 + h - hd, 5, hd, K_TEXT);
-        for (i = 0; i < 40 && x < (float)(x0 + w - 4); i++, x += sp) {
-            const int hh = (int)((float)(h - 4) * lv);
-            if (hh > 0)
-                cv_rect((int)x, y0 + h - hh, 4, hh, mix(K_PAD_T, K_PAD, 16 - (int)(16.0f * (float)en_syn[SY_DTONE] * 0.004f)));
-            lv *= fb;
-        }
-    } else if (pg == DE_REVERB || pg == DE_REVERB2) {   /* the tail: the pre-delay's gap, then the decay, as Mix sends it */
-        const float mx = fm_minf(2.0f * (float)en_syn[SY_RMIX] * 0.01f, 1.0f),
-                    dk = 0.45f + 0.0051f * (float)en_syn[SY_RDECAY], pre = 2.0f + 0.25f * (float)en_syn[SY_RPRE];
-        cv_rect(x0, ym, w, 1, K_BG);
-        cv_rect(x0, y0 + h, w, 1, K_LINE);
-        cv_rect(x0, y0 + 4, 5, h - 4, K_TEXT);
-        for (i = (int)pre; i < w; i++) {
-            const float t = (float)(i - (int)pre), a = mx * fm_expf(-t * (1.0f - dk) * 0.12f);
-            const int hh = (int)((float)(h - 4) * a);
-            if (hh > 0)
-                cv_rect(x0 + 6 + i, y0 + h - hh, 1, hh, (i & 1) ? K_PAD_T : mix(K_PAD_T, K_PAD, 8));
-        }
-    } else if (pg == DE_OSC) {                   /* two cycles of the wave, as folded */
-        const float fold = (float)en_syn[SY_FOLD] * 0.01f;
-        for (i = 0; i <= w; i++) {
-            const int y = ym - (int)(0.45f * (float)h * de_wave(en_syn[SY_WAVE], 2.0f * (float)i / (float)w, fold));
-            if (i)
-                cv_line(x0 + i - 1, py, x0 + i, y, K_PAD);
-            py = y;
-        }
-    } else if (pg >= DE_AENV && pg <= DE_E2) {    /* the envelope: attack, decay to sustain, a hold, release */
-        static const uint8_t A[4] = {SY_AA, SY_FA, SY_1A, SY_2A};
-        const int e = A[pg - DE_AENV];
-        const float ta = 0.2f + (float)en_syn[e], td = 0.2f + (float)en_syn[e + 1], sus = (float)en_syn[e + 2] * 0.01f,
-                    tr = 0.2f + (float)en_syn[e + 3], tot = ta + td + 40.0f + tr, sc = (float)w / tot;
-        const int xa = x0 + (int)(ta * sc), xd = xa + (int)(td * sc), xs = xd + (int)(40.0f * sc), yb = y0 + h, yt = y0 + 4,
-                  ys = yb - (int)(sus * (float)(h - 4));
-        cv_rect(x0, ym, w, 1, K_BG);
-        cv_rect(x0, yb, w, 1, K_LINE);
-        cv_line(x0, yb, xa, yt, K_PAD);
-        for (i = xa; i < xd; i++) {             /* (the decay a curve) */
-            const float f = (float)(i - xa) / (float)(xd - xa > 0 ? xd - xa : 1);
-            const int y = ys - (int)((float)(ys - yt) * (1.0f - f) * (1.0f - f));
-            cv_rect(i, y, 1, 2, K_PAD);
-        }
-        cv_line(xd, ys, xs, ys, K_PAD);
-        for (i = xs; i < x0 + w; i++) {
-            const float f = (float)(i - xs) / (float)(x0 + w - xs > 0 ? x0 + w - xs : 1);
-            cv_rect(i, ys + (int)((float)(yb - ys) * (1.0f - (1.0f - f) * (1.0f - f))), 1, 2, K_PAD);
-        }
-    } else if (pg == DE_L1 || pg == DE_L2) {       /* two cycles of the LFO */
-        const int sh = en_syn[pg == DE_L1 ? SY_L1SHAPE : SY_L2SHAPE];
-        for (i = 0; i <= w; i++) {
-            float t = 2.0f * (float)i / (float)w;
-            int y;
-            t -= (float)(int)t;
-            y = ym - (int)(0.45f * (float)h * de_lfo(sh, t));
-            if (i)
-                cv_line(x0 + i - 1, py, x0 + i, y, K_BELL);
-            py = y;
+    for (i = 0; i < n; i++) {
+        const float f = fm_clampf(v[i], -1.0f, 1.0f);
+        const int y = y0 + h / 2 - (int)(f * (float)(h / 2 - 1));
+        if (i)
+            cv_line(x0 + (i - 1) * w / (n - 1), py, x0 + i * w / (n - 1), y, c);
+        py = y;
+    }
+}
+static void de_axis(int x0, int y0, int w, float span, float step, const char *unit)   /* ticks and labels, 0..span */
+{
+    float t;
+    char b[12];
+    for (t = 0.0f; t <= span + 0.0001f; t += step) {
+        const int x = x0 + (int)((float)w * t / span);
+        cv_rect(x, y0, 1, 3, DE_DIM);
+        if (t > 0.0f && x < x0 + w - 8) {
+            b[0] = 0;
+            if (step < 1.0f)
+                de_num(b, (int)(t * 1000.0f + 0.5f));
+            else
+                de_num(b, (int)(t + 0.5f));
+            de_cat(b, step < 1.0f ? "" : unit);
+            cv_text(x - text_w(&FONT_T_XS, b) / 2, y0 + 3, &FONT_T_XS, b, DE_DIM);
         }
     }
-    if (pg == DE_DELAY) {                         /* (SELECT: Sync or Free) */
-        int32_t x = cv_text(150, 98, &FONT_XS, "SELECT  ", K_DIM);
-        cv_text(x, 98, &FONT_XS, en_syn[SY_DSYNC] ? "Sync" : "Free", K_TEXT);
+}
+static float de_bar_s(void) { return 240.0f / (float)(proj.par[P_TEMPO] > 20 ? proj.par[P_TEMPO] : 120); }   /* a bar, s */
+static float de_dtime_s(void)                    /* the delay's time, s */
+{
+    static const float BEATS[EN_NDTIME] = {0.25f, 0.3333f, 0.5f, 0.75f, 0.6667f, 1.0f, 1.5f, 2.0f, 3.0f, 4.0f};
+    if (!en_syn[SY_DSYNC])
+        return en_delay_ms(en_syn[SY_DMS]) * 0.001f;
+    return BEATS[en_syn[SY_DTIME] % EN_NDTIME] * de_bar_s() * 0.25f;
+}
+
+#define PX 8                                     /* the picture's box */
+#define PY 22
+#define PW 224
+#define PH 96
+static void de_pic_osc(void)                     /* the two oscillators as they sound: detuned, folded, modulated now */
+{
+    float v[113], det = en_det_now, fold = en_fold_now, beat;
+    const int w = en_syn[SY_WAVE];
+    int i;
+    beat = (float)(plat_ms() % 100000u) * 0.001f * (0.6f + 3.0f * det);   /* (the detune's beating, slowed to be seen) */
+    for (i = 0; i < 113; i++) {
+        const float t = 2.0f * (float)i / 112.0f;   /* (two cycles) */
+        const float x = de_osc1(w, t) + de_osc1(w, t * (1.0f + 0.0145f * det * 2.0f) + beat);
+        v[i] = 1.35f * de_sin(x * (0.0625f + 0.8125f * fold) + 4.0f);   /* (at Fold 0, its peak 0.71: shown full) */
     }
-    /* the extra knobs: Env 1 and Env 2's target (ALGORITHM) and depth (PRESETS); the LFOs' sync (ALGORITHM) */
-    for (i = 4; i < 6; i++) {
-        const int id = DE_KNOBS[pg][i];
-        int32_t x;
-        if (id < 0)
-            continue;
-        b[0] = 0;
-        de_cat(b, i == 4 ? "ALGORITHM  " : "PRESETS  ");
-        x = cv_text(12, 98 + (i - 4) * 18, &FONT_XS, b, K_DIM);
-        b[0] = 0;
-        de_cat(b, de_param_name(id));
-        de_cat(b, " ");
-        de_param_text(id, b + de_len(b));
-        cv_text(x, 98 + (i - 4) * 18, &FONT_XS, b, K_TEXT);
+    cv_rect(PX, PY + PH / 2, PW, 1, DE_GRID);
+    de_plot(PX, PY, PW, PH, v, 113, DE_OR);
+}
+static float de_lp_db(float f, float fc, float k)   /* the 2-pole low-pass at f, dB */
+{
+    const float r = f / fc, a = 1.0f - r * r, b = k * r, g = 1.0f / fm_sqrtf(a * a + b * b);
+    return 6.0206f * fm_log2f(g > 1e-6f ? g : 1e-6f);
+}
+static void de_pic_filter(void)                  /* the response, 20 Hz .. 20 kHz: the knobs' (grey) and as heard now (orange) */
+{
+    const float fc0 = 40.0f * fm_exp2f((float)en_syn[SY_CUT] * 0.0864f), k0 = 2.0f - 1.9f * (float)en_syn[SY_RESO] * 0.01f,
+                k1 = 2.0f - 1.9f * fm_clampf((float)en_syn[SY_RESO] * 0.01f + en_md_now[EN_MD_RESO], 0.0f, 1.0f),
+                fc1 = en_cut_now > 0.0f ? en_cut_now : fc0;
+    static const float TICK[3] = {100.0f, 1000.0f, 10000.0f};
+    static const char *const TN[3] = {"100", "1K", "10K"};
+    int i, p0 = 0, p1 = 0;
+    for (i = 0; i < 3; i++) {
+        const int x = PX + (int)((float)PW * fm_log2f(TICK[i] / 20.0f) / 9.966f);
+        cv_rect(x, PY, 1, PH, DE_GRID);
+        cv_text(x + 2, PY + PH - 12, &FONT_T_XS, TN[i], DE_DIM);
+    }
+    cv_rect(PX, PY + 20, PW, 1, DE_GRID);         /* (0 dB) */
+    for (i = 0; i <= PW; i++) {
+        const float f = 20.0f * fm_exp2f(9.966f * (float)i / (float)PW);
+        int y0 = PY + 20 - (int)(de_lp_db(f, fc0, k0) * 1.4f), y1 = PY + 20 - (int)(de_lp_db(f, fc1, k1) * 1.4f);
+        y0 = y0 < PY ? PY : y0 > PY + PH ? PY + PH : y0;
+        y1 = y1 < PY ? PY : y1 > PY + PH ? PY + PH : y1;
+        if (i) {
+            cv_line(PX + i - 1, p0, PX + i, y0, DE_DIM);
+            cv_line(PX + i - 1, p1, PX + i, y1, DE_OR);
+        }
+        p0 = y0, p1 = y1;
+    }
+}
+static void de_pic_env(int e)                    /* a 1 s note's envelope (the gate at 1 s), 0..3 s; where it is now */
+{
+    static const uint8_t A[4] = {SY_AA, SY_FA, SY_1A, SY_2A};
+    const int a = A[e];
+    const float ta = 0.001f * fm_exp2f((float)en_syn[a] * 0.1329f), td = 0.001f * fm_exp2f((float)en_syn[a + 1] * 0.1329f),
+                sus = (float)en_syn[a + 2] * 0.01f, tr = 0.001f * fm_exp2f((float)en_syn[a + 3] * 0.1329f),
+                span = 3.0f, dt = span / (float)PW;
+    float lv = 0.0f, t = 0.0f;
+    int st = 1, i, py = PY + PH, xg = PX + (int)((float)PW / span);
+    for (i = 0; i <= PW; i++, t += dt) {
+        int y;
+        if (t >= 1.0f && st != 3)
+            st = 3;                              /* (the gate off at 1 s) */
+        if (st == 1) {
+            lv += dt / ta;
+            if (lv >= 1.0f)
+                lv = 1.0f, st = 2;
+        } else if (st == 2) {
+            lv = sus + (lv - sus) * fm_expf(-dt * 6.9f / td);
+        } else {
+            lv *= fm_expf(-dt * 6.9f / tr);
+        }
+        y = PY + PH - (int)(lv * (float)(PH - 4));
+        if (i)
+            cv_line(PX + i - 1, py, PX + i, y, DE_OR);
+        py = y;
+    }
+    cv_rect(xg, PY, 1, PH, DE_LINE);             /* (the note off) */
+    cv_text(xg + 3, PY, &FONT_T_XS, "OFF", DE_DIM);
+    cv_rect(PX, PY + PH, PW, 1, DE_LINE);
+    de_axis(PX, PY + PH + 1, PW, span, 1.0f, "S");
+    if (en_env_st[e]) {                          /* (now: its level, where in the note it is) */
+        float tn = en_env_age[e] + (en_env_st[e] == 2 ? ta : 0.0f);
+        int x, y;
+        if (en_env_st[e] == 3)
+            tn = 1.0f + en_env_age[e];
+        x = PX + (int)((float)PW * fm_minf(tn, span) / span);
+        y = PY + PH - (int)(en_env_lv[e] * (float)(PH - 4));
+        cv_rect(x - 2, y - 2, 5, 5, DE_FG);
+    }
+}
+static void de_pic_lfo(int k)                    /* a bar of the LFO, its depth the height; where it is now */
+{
+    const int rate = en_syn[k ? SY_L2RATE : SY_L1RATE], sh = en_syn[k ? SY_L2SHAPE : SY_L1SHAPE],
+              sync = en_syn[k ? SY_L2SYNC : SY_L1SYNC], dp = en_syn[k ? SY_L2AMT : SY_L1AMT];
+    static const float SB[EN_NSYNC] = {0.0f, 16.0f, 8.0f, 4.0f, 2.0f, 1.0f, 0.5f, 0.25f};
+    const float bar = de_bar_s(), cyc = sync > 0 ? 4.0f / SB[sync % EN_NSYNC] : 0.02f * fm_exp2f((float)rate * 0.0997f) * bar,
+                d = (float)dp * 0.01f;
+    float v[225];
+    int i, n = 225;
+    for (i = 0; i < n; i++) {
+        const float t = cyc * (float)i / (float)(n - 1), ph = t - (float)(int)t;
+        v[i] = d * de_lshape(sh, ph, (int)t);
+    }
+    for (i = 1; i < 4; i++)                      /* (the beats) */
+        cv_rect(PX + i * PW / 4, PY, 1, PH, DE_GRID);
+    cv_rect(PX, PY + PH / 2, PW, 1, DE_LINE);
+    de_plot(PX, PY, PW, PH, v, n, DE_OR);
+    if (cyc < 32.0f) {                           /* (now: on its first cycle) */
+        const float ph = en_lfo_ph[k];
+        const int x = PX + (int)((float)PW * ph / fm_maxf(cyc, 1.0f)),
+                  y = PY + PH / 2 - (int)(d * de_lshape(sh, ph, 0) * (float)(PH / 2 - 1));
+        if (cyc >= 1.0f)
+            cv_rect(x - 2, y - 2, 5, 5, DE_FG);
+    }
+    cv_text(PX + PW - text_w(&FONT_T_XS, "1 BAR"), PY + PH + 3, &FONT_T_XS, "1 BAR", DE_DIM);
+}
+static void de_pic_delay(void)                   /* the repeats in seconds: each as Feedback leaves it, the first as Mix sends */
+{
+    const float ts = de_dtime_s(), fb = fm_minf((float)en_syn[SY_DFB] * 0.01f, 1.0f), mx = (float)en_syn[SY_DMIX] * 0.01f,
+                span = fm_clampf(ts * 6.0f, 1.0f, 6.0f), wow = (float)en_syn[SY_DWOW] * 0.01f;
+    float lv = fm_minf(2.0f * mx, 1.0f), t;
+    const int hd = (int)((float)(PH - 4) * fm_minf(2.0f * (1.0f - mx), 1.0f));
+    int n = 0;
+    char b[16];
+    cv_rect(PX, PY + PH, PW, 1, DE_LINE);
+    if (hd > 0)
+        cv_rect(PX, PY + PH - hd, 3, hd, DE_FG);    /* (the dry) */
+    for (t = ts; t < span && n < 60; t += ts, n++) {
+        const int x = PX + (int)((float)PW * (t + wow * 0.01f * de_sin((float)n * 0.37f)) / span),
+                  hh = (int)((float)(PH - 4) * lv);
+        if (hh > 0)
+            cv_rect(x, PY + PH - hh, 3, hh, n ? mix(DE_ORD, DE_OR, 16 - (int)(10.0f * (100.0f - (float)en_syn[SY_DTONE]) * 0.01f)) : DE_OR);
+        lv *= fb;
+    }
+    de_axis(PX, PY + PH + 1, PW, span, span > 2.5f ? 1.0f : 0.5f, "S");
+    b[0] = 0;
+    de_num(b, (int)(ts * 1000.0f + 0.5f));
+    de_cat(b, " MS");
+    cv_text(PX + PW - text_w(&FONT_T_XS, b), PY, &FONT_T_XS, b, DE_DIM);
+}
+static float de_rt60(int size, int decay)       /* the plate's tail to -60 dB, s: measured (tests' rt grid), between */
+{
+    static const float SZ[3] = {0.0f, 50.0f, 100.0f}, DC[5] = {0.0f, 30.0f, 55.0f, 80.0f, 100.0f};
+    static const float RT[3][5] = {{1.0f, 1.2f, 1.8f, 3.7f, 11.5f}, {1.4f, 2.3f, 3.5f, 6.5f, 23.2f}, {2.4f, 3.4f, 5.0f, 10.9f, 30.0f}};
+    int i = size >= 50 ? 1 : 0, j = 0;
+    float u, v, a, b;
+    while (j < 3 && (float)decay > DC[j + 1])
+        j++;
+    u = ((float)size - SZ[i]) / 50.0f;
+    v = ((float)decay - DC[j]) / (DC[j + 1] - DC[j]);
+    a = fm_log2f(RT[i][j]) + (fm_log2f(RT[i][j + 1]) - fm_log2f(RT[i][j])) * v;
+    b = fm_log2f(RT[i + 1][j]) + (fm_log2f(RT[i + 1][j + 1]) - fm_log2f(RT[i + 1][j])) * v;
+    return fm_exp2f(a + (b - a) * u);
+}
+static void de_pic_reverb(void)                  /* the tail in seconds: the pre-delay's gap, then the decay as Mix sends it */
+{
+    const float mx = fm_minf(2.0f * (float)en_syn[SY_RMIX] * 0.01f, 1.0f),
+                rt = de_rt60(en_syn[SY_RSIZE], en_syn[SY_RDECAY]), pre = (1.0f + (float)en_syn[SY_RPRE]) * 0.001f,
+                span = fm_clampf(rt * 1.2f, 1.0f, 8.0f);
+    int i, x0 = PX + (int)((float)PW * pre / span);
+    char b[16];
+    cv_rect(PX, PY + PH, PW, 1, DE_LINE);
+    cv_rect(PX, PY + 4, 3, PH - 4, DE_FG);        /* (the dry) */
+    for (i = x0; i < PX + PW; i++) {
+        const float t = (float)(i - x0) * span / (float)PW, a = mx * fm_exp2f(-t * 9.966f / rt);
+        const int hh = (int)((float)(PH - 4) * a);
+        if (hh > 0)
+            cv_rect(i, PY + PH - hh, 1, hh, (i & 1) ? DE_ORD : DE_OR);
+    }
+    de_axis(PX, PY + PH + 1, PW, span, span > 3.0f ? 1.0f : 0.5f, "S");
+    b[0] = 0;
+    de_cat(b, "RT60 ");
+    de_num(b, (int)rt);
+    de_cat(b, ".");
+    de_num(b + de_len(b), (int)(rt * 10.0f) % 10);
+    de_cat(b, " S");
+    cv_text(PX + PW - text_w(&FONT_T_XS, b), PY, &FONT_T_XS, b, DE_DIM);
+}
+
+static void de_touch_text(char *lab, char *val)  /* the control last turned: its name and value (for the big readout) */
+{
+    const int id = de.touch < 6 ? de_kid(de.page, de.touch) : SY_DSYNC;
+    lab[0] = val[0] = 0;
+    if (de.touch == 6) {
+        de_upper(lab, "Delay mode", 16);
+        de_param_text(SY_DSYNC, val);
+        return;
+    }
+    if (de_sound_page(de.page)) {
+        de_upper(lab, de_param_name(id), 16);
+        de_param_text(id, val);
     }
 }
 
 static void de_draw_main(void)
 {
-    char b[24];
+    char b[24], l[16];
     const uint32_t now = plat_ms();
+    const int msg = de.msg_t && now - de.msg_t < DE_MSG_MS, held = de.edit && de.step >= 0;
     int i, rows, n = de_nsteps();
-    cv_begin(240, DE_MAIN, K_BG);
-    /* the chord: the one held or last struck; in step edit, the step held's */
-    if (de.edit && de.step >= 0) {
+    cv_begin(240, DE_MAIN, DE_BG);
+    if (de_sound_page(de.page) && !held) {
+        /* the top line: a message, or the control being turned, large; else the chord */
+        if (msg) {
+            cv_text(8, 0, &FONT_T_B, de.msg, DE_OR);
+        } else if (de.touch >= 0 && de_touched(de.touch)) {
+            de_touch_text(l, b);
+            de_upper(b, b, 24);
+            cv_text(8, 0, &FONT_T_B, l, DE_OR);
+            cv_text(232 - text_w(&FONT_T_B, b), 0, &FONT_T_B, b, DE_FG);
+        } else {
+            b[0] = 0;
+            if (en_now_n) {
+                de_cat(b, EN_NOTE_NAME[en_now_pc % 12]);
+                de_cat(b, DE_Q_NAME[en_now_q <= EN_Q_OTHER ? en_now_q : EN_Q_OTHER]);
+            }
+            cv_text(8, 0, &FONT_T_B, b, DE_FG);
+        }
+        switch (de.page) {
+        case DE_OSC: de_pic_osc(); break;
+        case DE_FILT: de_pic_filter(); break;
+        case DE_AENV: de_pic_env(0); break;
+        case DE_FENV: de_pic_env(1); break;
+        case DE_E1: de_pic_env(2); break;
+        case DE_E2: de_pic_env(3); break;
+        case DE_L1: de_pic_lfo(0); break;
+        case DE_L2: de_pic_lfo(1); break;
+        case DE_DELAY: de_pic_delay(); break;
+        default: de_pic_reverb(); break;
+        }
+        /* the extra controls: ALGORITHM, PRESETS (and the Delay's SELECT), on one line */
+        {
+            static const char *const EN[3] = {"ALG", "PRE", "SEL"};
+            int32_t x = 8;
+            for (i = 0; i < 3; i++) {
+                const int id = i < 2 ? de_kid(de.page, 4 + i) : de.page == DE_DELAY ? SY_DSYNC : -1;
+                if (id < 0)
+                    continue;
+                x = cv_text(x, DE_MAIN - 16, &FONT_T_XS, EN[i], de_touched(4 + i) ? DE_OR : DE_DIM) + 4;
+                b[0] = 0;
+                if (id != SY_DSYNC) {
+                    de_upper(l, de_param_name(id), 12);
+                    de_cat(b, l);
+                    de_cat(b, " ");
+                }
+                de_param_text(id, b + de_len(b));
+                de_upper(b, b, 24);
+                x = cv_text(x, DE_MAIN - 16, &FONT_T_XS, b, DE_FG) + 10;
+            }
+        }
+        cv_blit(0, DE_HDR);
+        return;
+    }
+    /* the Play and Pattern pages: the chord (the step held's in step edit), large; the pattern under it */
+    if (held) {
         en_step_t t;
         de_step_get(de.step, &t);
         de_chord_name(&t, b);
-    } else if (de.msg_t && now - de.msg_t < DE_MSG_MS) {
+    } else if (msg) {
         for (i = 0; de.msg[i]; i++)
             b[i] = de.msg[i];
         b[i] = 0;
@@ -709,51 +936,62 @@ static void de_draw_main(void)
             de_cat(b, EN_NOTE_NAME[en_now_pc % 12]);
             de_cat(b, DE_Q_NAME[en_now_q <= EN_Q_OTHER ? en_now_q : EN_Q_OTHER]);
         } else {
-            de_cat(b, "dubengine");
+            de_cat(b, "DUBENGINE");
         }
     }
-    if (de_sound_page(de.page) && !(de.edit && de.step >= 0)) {
-        cv_text(12, 8, &FONT_B, b, de.msg_t && now - de.msg_t < DE_MSG_MS ? K_ACC : K_TEXT);
-        de_draw_sound();
-        cv_blit(0, DE_HDR);
-        return;
-    }
-    {
-        const felucca_font_t *f = text_w(&FONT_L, b) > 220 ? &FONT_B : &FONT_L;
-        cv_text((240 - text_w(f, b)) / 2, 14, f, b, de.msg_t && now - de.msg_t < DE_MSG_MS ? K_ACC : K_TEXT);
-    }
-    /* the pattern: 16 a row, up to 4 rows; a step's colour its chord's degree, the playhead white */
+    cv_text((240 - text_w(&FONT_T_C, b)) / 2, 14, &FONT_T_C, b, msg ? DE_OR : DE_FG);
+    /* the pattern: 16 a row, up to 4 rows; steps with a chord orange, the beats' first steps lighter, the playhead white */
     rows = (n + 15) / 16;
     for (i = 0; i < rows * 16; i++) {
-        const int r = i / 16, c = i % 16, x = 8 + c * 14, y = 64 + r * 18;
+        const int r = i / 16, c = i % 16, x = 8 + c * 14, y = 56 + r * 20;
         uint16_t col;
         if (i >= n)
             continue;
         if (en_seq[i].on)
-            col = mix(K_PAD_T, K_PAD, 6 + 10 * (int)en_seq[i].deg / 6);
+            col = mix(DE_ORD, DE_OR, 8 + 8 * (int)en_seq[i].deg / 6);
         else
-            col = mix(K_BG, K_LINE, (c & 3) ? 8 : 14);
+            col = (c & 3) ? DE_GRID : DE_LINE;
         if (en_seq_playing && i == en_seq_pos)
-            col = K_TEXT;
+            col = DE_FG;
         cv_rect(x, y, 12, 14, col);
-        if (en_seq[i].on && en_seq[i].len > 1) {     /* (a held chord: a bar to its end, on its row) */
+        if (en_seq[i].on && en_seq[i].len > 1) {     /* (a held chord: a line to its end, on its row) */
             int e = c + en_seq[i].len - 1;
             e = e > 15 ? 15 : e;
-            cv_rect(x + 12, y + 6, (e - c) * 14, 2, K_PAD_T);
+            cv_rect(x + 12, y + 6, (e - c) * 14, 2, DE_ORD);
         }
         if (de.edit && r == de.spage)
-            cv_rect(x, y + 15, 12, 2, K_ACC);        /* (the step page the keys edit) */
+            cv_rect(x, y + 16, 12, 2, DE_OR);        /* (the step page the keys edit) */
         if (de.edit && i == de.step)
-            cv_rect(x, y - 3, 12, 2, K_ACC);
+            cv_rect(x, y - 4, 12, 2, DE_FG);
     }
     cv_blit(0, DE_HDR);
 }
 
+static int de_bar_frac(int id, int *bip)         /* a control's place in its range, 0..1000 (bipolar: -1000..1000) */
+{
+    int lo, hi, v;
+    *bip = 0;
+    if (id < 0)
+        return 0;
+    if (id >= DE_P) {
+        const en_param_t *pi = en_param_info(id - DE_P);
+        lo = pi ? pi->lo : 0, hi = pi ? pi->hi : 100;
+        v = proj.par[id - DE_P];
+    } else {
+        lo = SYN_INFO[id].lo, hi = SYN_INFO[id].hi;
+        v = en_syn[id];
+    }
+    if (lo < 0 && hi > 0) {
+        *bip = 1;
+        return v * 1000 / (v < 0 ? -lo : hi);
+    }
+    return hi > lo ? (v - lo) * 1000 / (hi - lo) : 0;
+}
 static void de_draw_foot(void)
 {
     const char *lab[4];
-    char val[4][12];
-    int i;
+    char val[4][12], up[12];
+    int i, id[4] = {-1, -1, -1, -1};
     for (i = 0; i < 4; i++)
         val[i][0] = 0;
     if (de.edit && de.step >= 0) {
@@ -766,31 +1004,48 @@ static void de_draw_foot(void)
         de_num(val[3], t.len);
     } else if (de_sound_page(de.page)) {
         for (i = 0; i < 4; i++) {
-            lab[i] = de_param_name(de_kid(de.page, i));
-            de_param_text(de_kid(de.page, i), val[i]);
+            id[i] = de_kid(de.page, i);
+            lab[i] = de_param_name(id[i]);
+            de_param_text(id[i], val[i]);
         }
     } else if (de.page == DE_PLAY) {
         lab[0] = "Tempo", lab[1] = "Root", lab[2] = "Mode", lab[3] = "Voicing";
         de_num(val[0], proj.par[P_TEMPO]);
         de_cat(val[1], EN_NOTE_NAME[proj.par[P_ROOT] % 12]);
-        de_cat(val[2], EN_MODE_NAME[proj.par[P_MODE] % EN_NMODES]);
+        de_upper(val[2], EN_MODE_NAME[proj.par[P_MODE] % EN_NMODES], 12);
         de_cat(val[3], DE_VO_NAME[de.voicing]);
     } else {
         lab[0] = "Length", lab[1] = "Step", lab[2] = "Click", lab[3] = "";
         de_num(val[0], de_nsteps());
         de_cat(val[1], EN_DIV_NAME[en_seq_div % EN_NDIV]);
         de_num(val[2], en_metro_lvl);
-        de_cat(val[2], en_metro_on ? "" : " off");
+        de_cat(val[2], en_metro_on ? "" : " OFF");
     }
-    cv_begin(240, DE_FOOT, K_BG);
-    cv_rect(0, 0, 240, 1, K_LINE);
-    cv_text(8, 4, &FONT_XS, de.edit && de.step >= 0 ? "STEP" : DE_PAGE_NAME[de.page], K_ACC);
+    cv_begin(240, DE_FOOT, DE_BG);
+    cv_rect(0, 0, 240, 1, DE_LINE);
     for (i = 0; i < 4; i++) {
         const int32_t x = i * 60, cx = x + 30;
+        const int t = de_touched(i);
+        int bip, f;
         if (i)
-            cv_rect(x, 24, 1, DE_FOOT - 30, K_LINE);
-        cv_text(cx - text_w(&FONT_XS, lab[i]) / 2, 24, &FONT_XS, lab[i], K_DIM);
-        cv_text(cx - text_w(&FONT_B, val[i]) / 2, 44, &FONT_B, val[i], K_TEXT);
+            cv_rect(x, 8, 1, DE_FOOT - 16, DE_LINE);
+        de_upper(up, lab[i], sizeof up);
+        cv_text(cx - text_w(&FONT_T_XS, up) / 2, 6, &FONT_T_XS, up, t ? DE_OR : DE_DIM);
+        de_upper(val[i], val[i], 12);
+        cv_text(cx - text_w(&FONT_T_B, val[i]) / 2, 24, &FONT_T_B, val[i], t ? DE_OR : DE_FG);
+        if (id[i] >= 0) {                        /* (the value's bar: from the left, or from the middle if bipolar) */
+            f = de_bar_frac(id[i], &bip);
+            cv_rect(x + 8, 50, 44, 3, DE_LINE);
+            if (bip) {
+                const int w = f * 22 / 1000;
+                if (w >= 0)
+                    cv_rect(x + 30, 50, w ? w : 1, 3, DE_OR);
+                else
+                    cv_rect(x + 30 + w, 50, -w, 3, DE_OR);
+            } else {
+                cv_rect(x + 8, 50, f * 44 / 1000, 3, DE_OR);
+            }
+        }
     }
     cv_blit(0, DE_HDR + DE_MAIN);
 }

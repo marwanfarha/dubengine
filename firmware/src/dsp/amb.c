@@ -743,17 +743,17 @@ static void post(uint32_t c, int a, int b)
 void en_set(int p, int v) { post(C_SET, p, v); }
 void en_pool(uint32_t pool) { post(C_POOL, 0, (int)(pool & 0xFFFu)); }
 void en_play(int on) { post(C_PLAY, on, 0); }
-void en_key_chord(int note, int on) { post(C_KEY, on != 0, note & 0x7F); }
-void en_voicing_set(int v) { post(C_VOICING, v, 0); }
+EN_COLD void en_key_chord(int note, int on) { post(C_KEY, on != 0, note & 0x7F); }
+EN_COLD void en_voicing_set(int v) { post(C_VOICING, v, 0); }
 enum { SQ_PLAY, SQ_REC, SQ_LEN, SQ_DIV, SQ_CLEAR, SQ_RESTORE, SQ_METRO };
-void en_seq_play(int on) { post(C_SEQ, SQ_PLAY, on != 0); }
-void en_seq_record(int on) { post(C_SEQ, SQ_REC, on != 0); }
-void en_seq_length(int steps) { post(C_SEQ, SQ_LEN, steps); }
-void en_seq_division(int div) { post(C_SEQ, SQ_DIV, div); }
-void en_seq_clear(void) { post(C_SEQ, SQ_CLEAR, 0); }
-void en_seq_restore(void) { post(C_SEQ, SQ_RESTORE, 0); }
-void en_metro(int on, int level) { post(C_SEQ, SQ_METRO, (on != 0) << 8 | (level & 0x7F)); }
-void en_seq_step(int i, const en_step_t *st)      /* packed: on, degree (3 bits), octave (2), voicing (2), length - 1 (6) */
+EN_COLD void en_seq_play(int on) { post(C_SEQ, SQ_PLAY, on != 0); }
+EN_COLD void en_seq_record(int on) { post(C_SEQ, SQ_REC, on != 0); }
+EN_COLD void en_seq_length(int steps) { post(C_SEQ, SQ_LEN, steps); }
+EN_COLD void en_seq_division(int div) { post(C_SEQ, SQ_DIV, div); }
+EN_COLD void en_seq_clear(void) { post(C_SEQ, SQ_CLEAR, 0); }
+EN_COLD void en_seq_restore(void) { post(C_SEQ, SQ_RESTORE, 0); }
+EN_COLD void en_metro(int on, int level) { post(C_SEQ, SQ_METRO, (on != 0) << 8 | (level & 0x7F)); }
+EN_COLD void en_seq_step(int i, const en_step_t *st)      /* packed: on, degree (3 bits), octave (2), voicing (2), length - 1 (6) */
 {
     const int len = st->len < 1 ? 1 : st->len > EN_SEQ_MAX ? EN_SEQ_MAX : st->len;
     post(C_STEP, i & 0x3F, (st->on != 0) | (st->deg & 7) << 1 | (st->oct & 3) << 4 | (st->voi & 3) << 6 | (len - 1) << 8);
@@ -2018,14 +2018,14 @@ static float step_samples(void)
     return quarter() / PER_Q[en_seq_div < EN_NDIV ? en_seq_div : EN_DIV_16];
 }
 static int base_note(void) { return 60 + par[P_ROOT]; }   /* the root's octave: C4 .. B4 */
-int en_seq_note(const en_step_t *st)
+EN_COLD int en_seq_note(const en_step_t *st)
 {
     int s[12], m = scale_list(s);
     if (!m)
         return base_note();
     return base_note() + s[st->deg % m] + 12 * ((int)st->oct - 2);
 }
-int en_note_step(int note, en_step_t *st)
+EN_COLD int en_note_step(int note, en_step_t *st)
 {
     int s[12], m = scale_list(s), rel = note - base_note(), o, r, d;
     o = rel >= 0 ? rel / 12 : -((11 - rel) / 12);
@@ -2161,6 +2161,16 @@ EN_COLD static void seq_cmd(int op, int v)
     }
 }
 
+static void syn_reset(void);                     /* (de_synth.c) */
+EN_COLD static void de_reset(void)
+{
+    int i;
+    for (i = 0; i < EN_SEQ_MAX; i++)
+        en_seq[i].on = 0, en_seq[i].len = 1;
+    en_seq_len = 16, en_seq_div = EN_DIV_16, en_seq_playing = en_seq_rec = 0, en_seq_pos = 0, en_metro_on = 0, en_metro_lvl = 60;
+    key_held = 0, key_voicing = EN_VO_FIRST, en_key_note = 0, sq_gate = 0.0f, rec_step = -1, en_now_n = 0;
+    syn_reset();
+}
 static uint32_t seq_wait(void)                   /* samples to the sequencer's next event (a step, a beat) */
 {
     float w = sq_left < sq_beat_left ? sq_left : sq_beat_left;
@@ -4773,8 +4783,10 @@ EN_COLD static void quiet(void)
     notes_off();
 }
 
+static void de_reset(void);                      /* (dubengine: the sequencer and the synth as at power on) */
 EN_COLD void en_init(void)
 {
+    de_reset();
     int i;
     for (i = 0; i <= SN; i++)
         sint[i] = fm_sinf((float)i * (FM_TWO_PI / (float)SN));
@@ -5300,7 +5312,7 @@ static float mt_diff(uint32_t n, const float *c)  /* (c: a mono bus of the part'
 }
 /* (bassb: the bass, mono, on its own so the duck takes it deeper than the rest) */
 
-static void render_stabs(uint32_t n)
+EN_COLD static void render_stabs(uint32_t n)
 {
     uint32_t j;
     int i;
@@ -5480,7 +5492,7 @@ static void render_stabs(uint32_t n)
 
 #include "de_synth.c"                           /* (dubengine: the chord's synth) */
 
-static void render_bass(uint32_t n)
+EN_COLD static void render_bass(uint32_t n)
 {
     uint32_t j;
     const int bv = (unsigned)par[P_BVOICE] < EN_NBV ? par[P_BVOICE] : 0;
@@ -5560,7 +5572,7 @@ static void render_bass(uint32_t n)
     en_bass_level = env;
 }
 
-static void render_bells(uint32_t n)
+EN_COLD static void render_bells(uint32_t n)
 {
     int i;
     const float g = bell_vol * 1.4f * fd_g[1] * mx_g[1], arate = 0.004f + 0.02f * fm_minf(btone * 2.0f, 1.0f),
@@ -5662,7 +5674,7 @@ static void render_hat(drum_t *v, uint32_t n, float g, float pl, float pr, float
     v->on = amp > 0.0005f;
 }
 
-static void render_drums(uint32_t n)
+EN_COLD static void render_drums(uint32_t n)
 {
     uint32_t j;
     /* (1.4.0, the user's: the kick and the hats apart) the Hats strip's: its Low cut, its sends' shares, the throw
@@ -6064,7 +6076,7 @@ EN_COLD static void noise_step(int s)
 static float nzl_s[4];                           /* (the strip's Low cut's state: the rings', the clicks') */
 static float nzf_s[2];                           /* (the noise's LFO filter's state: the rings', l and r) */
 static inline float svf_lp(const float *c, float *s, float x, float *bp);
-static void render_crackle(uint32_t n)
+EN_COLD static void render_crackle(uint32_t n)
 {
     uint32_t j, thr;
     int i;

@@ -41,7 +41,7 @@ const en_syn_info_t SYN_INFO[SY_N] = {
     {"Mod rate", 0, 100, 30}, {"Freeze", 0, 1, 0},
     {"Mode", 0, 1, 1}, {"Time", 0, 100, 60},
 };
-float en_delay_ms(int v) { return 20.0f * fm_exp2f((float)v * 0.0664f); }   /* Free: 20 ms .. 2 s */
+EN_COLD float en_delay_ms(int v) { return 20.0f * fm_exp2f((float)v * 0.0664f); }   /* Free: 20 ms .. 2 s */
 volatile int16_t en_syn[SY_N];
 volatile float en_syn_amp;
 volatile float en_md_now[EN_NMD], en_env_lv[4], en_env_age[4], en_lfo_ph[2], en_lfo_val[2], en_cut_now, en_fold_now, en_det_now;
@@ -58,12 +58,12 @@ static float sy_s[4], sy_c[4];                   /* the filter's state (left, ri
 static float sy_lfo_ph[2], sy_lfo_v[2], sy_rand[2], sy_amp_s;
 static uint8_t sy_ready;
 
-void en_syn_set(int p, int v) { post(C_SYN, p, v); }
+EN_COLD void en_syn_set(int p, int v) { post(C_SYN, p, v); }
 /* the delay and the reverb: DUB-1's tape echo and plate, set from the Delay and Reverb pages (while en_gen_on is 0) */
 static float de_dmix, de_rmix, de_dry = 1.0f, de_rlow, de_rwidth = 1.0f, de_pdamp = 0.64f, de_wph1, de_wph2, de_rhp, de_rhc = 1.0f,
              de_rlp[2];
 static int de_pre = PRE_N_DUB;
-static void syn_fx(void)
+EN_COLD static void syn_fx(void)
 {
     const float dm = (float)en_syn[SY_DMIX] * 0.01f, rm = (float)en_syn[SY_RMIX] * 0.01f;
     /* Mix: up to the middle the send rises to full, past it the dry falls away (two effects: the dry the less of both) */
@@ -88,7 +88,7 @@ static void syn_fx(void)
 }
 static inline int de_pre_n(void) { return de_pre; }
 static inline float pl_damp_k(void) { return en_gen_on ? 0.64f : de_pdamp; }
-static float de_dtime_beats(void)                /* the delay's time in beats: Sync's division, or Free's ms at the tempo */
+EN_COLD static float de_dtime_beats(void)                /* the delay's time in beats: Sync's division, or Free's ms at the tempo */
 {
     if (!en_syn[SY_DSYNC])
         return en_delay_ms(en_syn[SY_DMS]) * 0.001f * (bpm_now > 0.0f ? bpm_now : 120.0f) * (1.0f / 60.0f);
@@ -109,7 +109,8 @@ static inline float de_drive_in(float x)          /* Drive: the tape pushed, sat
     const float g = 1.0f + 5.0f * de_drive;
     return sat(x * g) * (1.0f + 0.5f * de_drive) / g;
 }
-static void syn_defaults(void)
+EN_COLD static void syn_reset(void) { sy_ready = 0; }   /* (the defaults again at the next block) */
+EN_COLD static void syn_defaults(void)
 {
     int i;
     for (i = 0; i < SY_N; i++)
@@ -117,7 +118,7 @@ static void syn_defaults(void)
     sy_ready = 1;
     syn_fx();
 }
-static void syn_cmd(int p, int v)
+EN_COLD static void syn_cmd(int p, int v)
 {
     if ((unsigned)p >= SY_N)
         return;
@@ -128,7 +129,7 @@ static void syn_cmd(int p, int v)
     syn_fx();
 }
 
-static void syn_trig(void)                       /* a chord struck: every envelope from where it is, to its attack */
+EN_COLD static void syn_trig(void)                       /* a chord struck: every envelope from where it is, to its attack */
 {
     int i;
     if (!sy_ready)

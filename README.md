@@ -17,6 +17,61 @@ Dub techno lives on chord stabs: one shape moved around a key, thrown into a tap
 
 Every chord comes from its own synth: two oscillators a voice (sine, triangle, saw or square), a wavefolder, a resonant filter, amp and filter envelopes, two more envelopes and two LFOs to modulate almost anything. Then a tape echo and a plate reverb.
 
+## How to use it
+
+### Quick start
+1. Press a **lit key**. It plays the chord your scale builds on that note. Dark keys are outside the scale.
+2. **HOME**: KNOB 1 tempo, KNOB 2 root, KNOB 3 mode, KNOB 4 voicing.
+3. **SEL**: metronome on or off.
+4. **PLAY**, then **REC**: play lit keys to record. **REC** again to stop recording.
+5. **ENV**, **LFO**, **FX**: shape the sound. Press again for the next page.
+
+### Buttons
+
+| Button | Does |
+| --- | --- |
+| PLAY | Start and stop the pattern. |
+| REC | Playing: live recording on or off. Stopped: step edit on or off. |
+| SEL | Metronome on or off. |
+| HOME | Play page. |
+| SEQ | Pattern page. Hold 1.5 s: clear the pattern. Hold again within 5 s: bring it back. |
+| ENV | Osc, Filter, Amp env, Filter env, Env 1, Env 2, in turn. |
+| LFO | LFO 1, LFO 2. |
+| FX | Delay, Reverb, Reverb 2, in turn. |
+| GLO | Hold: save now. Saving also happens by itself after 3 s stopped. |
+| OCT− OCT+ | The keys' octave. In step edit: the page of 16 steps. |
+
+### Pages
+
+| Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 | ALGORITHM | PRESETS |
+| --- | --- | --- | --- | --- | --- | --- |
+| Play | Tempo | Root | Mode | Voicing | | |
+| Pattern | Length | Step | Click level | | | |
+| Osc | Wave | Fold | Detune | Level | | |
+| Filter | Cutoff | Reso | Env amount | Key track | | |
+| Amp env | Attack | Decay | Sustain | Release | | |
+| Filter env | Attack | Decay | Sustain | Release | | |
+| Env 1, 2 | Attack | Decay | Sustain | Release | Target | Depth |
+| LFO 1, 2 | Rate | Shape | Target | Depth | Sync | |
+| Delay | Time | Feedback | Mix | Tone | Wow | Drive |
+| Reverb | Decay | Size | Pre delay | Mix | Width | High cut |
+| Reverb 2 | Damping | Diffusion | Mod depth | Mod rate | Low cut | Freeze |
+
+* Delay: **SELECT** switches the time between Sync (1/16 to 1 bar) and Free (20 ms to 2 s).
+* Mix: 0 dry only, 50 dry and wet both full, 100 wet only.
+* Targets: pitch, fold, detune, cutoff, reso, level, amp attack, decay and release, delay mix.
+
+### Step edit
+1. Stop, then press **REC**. The 16 white keys are the steps.
+2. Tap a step: add your last chord, or remove it.
+3. Hold a step and turn: KNOB 1 chord, KNOB 2 voicing, KNOB 3 octave, KNOB 4 length.
+4. **REC** again to leave.
+
+### The screen
+* **Header:** the page, the key, play and record, the metronome, the tempo.
+* **Picture:** what the page sets, to scale and live. LFOs across one bar, envelopes on a time axis, the oscillators as heard (detune, fold and modulation included), the filter's curve where the cutoff is now, the delay and reverb in seconds.
+* **Footer:** the four knobs, each with a bar showing where it sits. The one you turn lights orange and shows large for a moment.
+
 ## Where it is now
 
 | Feature | Status |
@@ -27,6 +82,8 @@ Every chord comes from its own synth: two oscillators a voice (sine, triangle, s
 | Step edit, step locks for chord, voicing, octave, length | Done |
 | Synth: 4 waves, fold, filter, amp and filter envelopes, 2 mod envs, 2 LFOs | Done |
 | Delay page (sync or free time, feedback, mix, tone, wow, drive) and two Reverb pages (decay, size, pre-delay, mix, width, high cut, damping, diffusion, modulation, low cut, freeze) | Done |
+| Black and orange screen, live to scale pictures | Done |
+| Real firmware built and update path tested on every push | Done |
 | Saving the pattern and the sound (by themselves, or GLO held) | Done |
 | Several pattern and sound slots | Next |
 | Digitakt clock sync | Planned |
