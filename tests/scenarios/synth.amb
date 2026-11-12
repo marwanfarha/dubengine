@@ -69,9 +69,18 @@ wait 100
 spin K3 10
 expect syn46 40
 spin K2 10
-expect syn45 45
+expect syn50 100
 wait 100
 shot reverb.png
+# Reverb 2: K2 Diffusion 75 -> 55; PRESETS Freeze on
+tap FX
+wait 100
+spin K2 -10
+expect syn52 55
+spin PRESET 1
+expect syn55 1
+wait 100
+shot reverb2.png
 tap FX
 wait 100
 shot delay2.png

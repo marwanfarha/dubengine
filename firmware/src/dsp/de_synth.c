@@ -37,6 +37,8 @@ const en_syn_info_t SYN_INFO[SY_N] = {
     {"Wow", 0, 100, 25}, {"Drive", 0, 100, 20},
     {"Decay", 0, 100, 55}, {"Mix", 0, 100, 25}, {"Pre-dly", 0, 100, 20}, {"Damping", 0, 100, 50},
     {"Low cut", 0, 100, 30}, {"Width", 0, 100, 70},
+    {"Size", 0, 100, 80}, {"High cut", 0, 100, 70}, {"Diffusion", 0, 100, 75}, {"Mod depth", 0, 100, 40},
+    {"Mod rate", 0, 100, 30}, {"Freeze", 0, 1, 0},
 };
 volatile int16_t en_syn[SY_N];
 volatile float en_syn_amp;
@@ -54,7 +56,8 @@ static uint8_t sy_ready;
 
 void en_syn_set(int p, int v) { post(C_SYN, p, v); }
 /* the delay and the reverb: DUB-1's tape echo and plate, set from the Delay and Reverb pages (while en_gen_on is 0) */
-static float de_dmix, de_rmix, de_dry = 1.0f, de_rlow, de_rwidth = 1.0f, de_pdamp = 0.64f, de_wph1, de_wph2, de_rhp;
+static float de_dmix, de_rmix, de_dry = 1.0f, de_rlow, de_rwidth = 1.0f, de_pdamp = 0.64f, de_wph1, de_wph2, de_rhp, de_rhc = 1.0f,
+             de_rlp[2];
 static int de_pre = PRE_N_DUB;
 static void syn_fx(void)
 {
@@ -72,6 +75,12 @@ static void syn_fx(void)
     de_pre = 1 + (int)((float)(PRE_N - 2) * (float)en_syn[SY_RPRE] * 0.01f);   /* (1 .. 100 ms) */
     de_rlow = (float)en_syn[SY_RLOW] * 0.01f * 0.11f;   /* (a one-pole high-pass: to ~800 Hz) */
     de_rwidth = (float)en_syn[SY_RWIDTH] * 0.02f;   /* (0 mono, 1 as the plate is, 2 wider) */
+    de_rv_sz = 0.35f + 0.0065f * (float)en_syn[SY_RSIZE];   /* (the plate's lines read shorter: a smaller room) */
+    de_rv_diff = (float)en_syn[SY_RDIFF] * 0.0125f;   /* (0 .. 1.25 of the plate's own diffusion; 75: as it was) */
+    de_rv_md = (float)en_syn[SY_RMODD] * 0.01f;
+    de_rv_mr = 0.00002f * fm_exp2f((float)en_syn[SY_RMODR] * 0.05f);   /* (~0.07 .. 2.3 Hz at half the rate) */
+    de_rhc = 1.0f - fm_expf(-2.0f * FM_PI * (1000.0f * fm_exp2f((float)en_syn[SY_RHICUT] * 0.0432f)) / EN_SR);   /* (1 .. 20 kHz) */
+    de_rfreeze = (uint8_t)(en_syn[SY_RFREEZE] != 0);
 }
 static inline int de_pre_n(void) { return de_pre; }
 static inline float pl_damp_k(void) { return en_gen_on ? 0.64f : de_pdamp; }

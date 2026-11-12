@@ -89,6 +89,30 @@ int main(void)
     b = tail(1500, 1000);
     CHECK(b > 3.0f * a, "Decay 100 rings on past Decay 0 (%.3f against %.3f, 1.5 s after)", (double)b, (double)a);
 
+    /* Size: a small room dies sooner than a big one */
+    reset();
+    set(SY_RMIX, 50), set(SY_RDECAY, 80), set(SY_RSIZE, 0);
+    a = tail(1500, 1000);
+    reset();
+    set(SY_RMIX, 50), set(SY_RDECAY, 80), set(SY_RSIZE, 100);
+    b = tail(1500, 1000);
+    CHECK(b > 1.5f * a, "Size 100 rings longer than Size 0 (%.3f against %.3f)", (double)b, (double)a);
+
+    /* Freeze: the tail held, long after it would have gone */
+    reset();
+    set(SY_RMIX, 50), set(SY_RDECAY, 20);
+    en_key_chord(60, 1);
+    run_ms(300);
+    en_key_chord(60, 0);
+    run_ms(150);
+    set(SY_RFREEZE, 1);
+    run_ms(6000);
+    a = run_ms(500);
+    set(SY_RFREEZE, 0);
+    run_ms(6000);
+    b = run_ms(500);
+    CHECK(a > 0.05f && b < 0.2f * a, "Freeze holds the tail (%.3f after 6 s), let go it dies (%.3f)", (double)a, (double)b);
+
     if (!fails)
         printf("fx: all ok\n");
     return fails != 0;

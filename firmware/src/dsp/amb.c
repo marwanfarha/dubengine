@@ -3569,41 +3569,52 @@ static inline float allpass_mod(dl_t *d, float len, float x, float g)
     return z + g * v;
 }
 
+/* (de_synth.c, the Reverb pages: the lines' size, the diffusion, the modulation's depth and rate, freeze; DUB-1's own mode
+ * the plate as it was) */
+static float de_rv_sz = 1.0f, de_rv_diff = 1.0f, de_rv_md = 1.0f, de_rv_mr = 0.0002f;
+static uint8_t de_rfreeze;
 static inline int de_pre_n(void);                /* (de_synth.c: the Reverb page's pre-delay, its damping) */
 static inline float pl_damp_k(void);
 static inline void reverb(float in, float *ol, float *or_)
 {
-    float x, a, b, fb_l = tap(&dl[L_D2R], DS(3163)), fb_r = tap(&dl[L_D2L], DS(3720));
+    /* (dubengine: Size scales where the lines are read, Diffusion the allpasses' gains, Mod the lines' wobble; DUB-1's own
+     * mode: 1, 1, 1 and its rate) */
+    const int dub = en_gen_on;
+    const float sz = dub ? 1.0f : de_rv_sz, df = dub ? 1.0f : de_rv_diff, md = dub ? 1.0f : de_rv_md,
+                mr = dub ? 0.0002f : de_rv_mr;
+#define SZ(n) ((int)((float)DS(n) * sz))
+    float x, a, b, fb_l = tap(&dl[L_D2R], SZ(3163)), fb_r = tap(&dl[L_D2L], SZ(3720));
     push(&dl[L_PRE], in);
-    x = tap(&dl[L_PRE], en_gen_on ? PRE_N_DUB : de_pre_n());
+    x = tap(&dl[L_PRE], dub ? PRE_N_DUB : de_pre_n());
     pl_bw += 0.84f * (x - pl_bw);                /* (0.6 at the full rate) */
-    x = allpass(&dl[L_IN1], DS(142), pl_bw, 0.75f);
-    x = allpass(&dl[L_IN2], DS(107), x, 0.75f);
-    x = allpass(&dl[L_IN3], DS(379), x, 0.625f);
-    x = allpass(&dl[L_IN4], DS(277), x, 0.625f);
+    x = allpass(&dl[L_IN1], DS(142), pl_bw, fm_minf(0.75f * df, 0.9f));
+    x = allpass(&dl[L_IN2], DS(107), x, fm_minf(0.75f * df, 0.9f));
+    x = allpass(&dl[L_IN3], DS(379), x, fm_minf(0.625f * df, 0.9f));
+    x = allpass(&dl[L_IN4], DS(277), x, fm_minf(0.625f * df, 0.9f));
     {
-        float s = lfo_s + 0.0002f * lfo_c, c = lfo_c - 0.0002f * s;   /* (the same speed at half the rate) */
+        float s = lfo_s + mr * lfo_c, c = lfo_c - mr * s;   /* (the same speed at half the rate) */
         lfo_s = s;
         lfo_c = c;
     }
-    a = allpass_mod(&dl[L_APL], (float)DS(672) + (float)EXC * lfo_s, x + pl_decay * fb_l, -0.7f);
+    a = allpass_mod(&dl[L_APL], (float)SZ(672) + (float)EXC * md * lfo_s, x + pl_decay * fb_l, -fm_minf(0.7f * df, 0.9f));
     push(&dl[L_D1L], a);
-    b = tap(&dl[L_D1L], DS(4453));
+    b = tap(&dl[L_D1L], SZ(4453));
     pl_damp_l += pl_damp_k() * (b - pl_damp_l);   /* (0.4 at the full rate: DUB-1's 0.64) */
-    b = allpass(&dl[L_AP2L], DS(1800), pl_damp_l * pl_decay, pl_dd2);
+    b = allpass(&dl[L_AP2L], SZ(1800), pl_damp_l * pl_decay, fm_minf(pl_dd2 * df, 0.9f));
     push(&dl[L_D2L], b);
-    a = allpass_mod(&dl[L_APR], (float)DS(908) + (float)EXC * lfo_c, x + pl_decay * fb_r, -0.7f);
+    a = allpass_mod(&dl[L_APR], (float)SZ(908) + (float)EXC * md * lfo_c, x + pl_decay * fb_r, -fm_minf(0.7f * df, 0.9f));
     push(&dl[L_D1R], a);
-    b = tap(&dl[L_D1R], DS(4217));
+    b = tap(&dl[L_D1R], SZ(4217));
     pl_damp_r += pl_damp_k() * (b - pl_damp_r);
-    b = allpass(&dl[L_AP2R], DS(2656), pl_damp_r * pl_decay, pl_dd2);
+    b = allpass(&dl[L_AP2R], SZ(2656), pl_damp_r * pl_decay, fm_minf(pl_dd2 * df, 0.9f));
     push(&dl[L_D2R], b);
-    *ol = 0.6f * (tap(&dl[L_D1R], DS(266)) + tap(&dl[L_D1R], DS(2974)) - tap(&dl[L_AP2R], DS(1913)) +
-                  tap(&dl[L_D2R], DS(1996)) - tap(&dl[L_D1L], DS(1990)) - tap(&dl[L_AP2L], DS(187)) -
-                  tap(&dl[L_D2L], DS(1066)));
-    *or_ = 0.6f * (tap(&dl[L_D1L], DS(353)) + tap(&dl[L_D1L], DS(3627)) - tap(&dl[L_AP2L], DS(1228)) +
-                   tap(&dl[L_D2L], DS(2673)) - tap(&dl[L_D1R], DS(2111)) - tap(&dl[L_AP2R], DS(335)) -
-                   tap(&dl[L_D2R], DS(121)));
+    *ol = 0.6f * (tap(&dl[L_D1R], SZ(266)) + tap(&dl[L_D1R], SZ(2974)) - tap(&dl[L_AP2R], SZ(1913)) +
+                  tap(&dl[L_D2R], SZ(1996)) - tap(&dl[L_D1L], SZ(1990)) - tap(&dl[L_AP2L], SZ(187)) -
+                  tap(&dl[L_D2L], SZ(1066)));
+    *or_ = 0.6f * (tap(&dl[L_D1L], SZ(353)) + tap(&dl[L_D1L], SZ(3627)) - tap(&dl[L_AP2L], SZ(1228)) +
+                   tap(&dl[L_D2L], SZ(2673)) - tap(&dl[L_D1R], SZ(2111)) - tap(&dl[L_AP2R], SZ(335)) -
+                   tap(&dl[L_D2R], SZ(121)));
+#undef SZ
 }
 
 EN_COLD static void plate_init(void)
@@ -6694,7 +6705,8 @@ static void render_chunk(int32_t *out, uint32_t n, float gain)
         cloud(rin * ca * 2.5f * cl_in + pl_back * cloud_amt * 0.22f, &cl, &cr);   /* the grains, into the plate: they bloom;
                                                  * the plate's tail back into the line: the wash grows on itself */
         {   /* the plate, every other sample (its input the pair's mean, its output a line between) */
-            const float pin = rin * (1.0f - 0.5f * cloud_amt) + (cl + cr) * 0.8f;
+            const float pin = (!en_gen_on && de_rfreeze) ? 0.0f   /* (Freeze: nothing new in, the tail held) */
+                              : rin * (1.0f - 0.5f * cloud_amt) + (cl + cr) * 0.8f;
             if ((pl_ph ^= 1u) != 0u) {
                 pl_acc = pin;
                 wl = pl_ol, wr = pl_or;
@@ -6705,8 +6717,11 @@ static void render_chunk(int32_t *out, uint32_t n, float gain)
                 pl_ol = nl, pl_or = nr;
             }
         }
-        if (!en_gen_on) {                        /* (dubengine: the Reverb page's Width) */
-            const float m = 0.5f * (wl + wr), sd2 = 0.5f * (wl - wr) * de_rwidth;
+        if (!en_gen_on) {                        /* (dubengine: the Reverb pages' High cut and Width) */
+            float m, sd2;
+            de_rlp[0] += de_rhc * (wl - de_rlp[0]);
+            de_rlp[1] += de_rhc * (wr - de_rlp[1]);
+            m = 0.5f * (de_rlp[0] + de_rlp[1]), sd2 = 0.5f * (de_rlp[0] - de_rlp[1]) * de_rwidth;
             wl = m + sd2, wr = m - sd2;
         }
         pl_back = 0.5f * (wl + wr);
@@ -6839,7 +6854,8 @@ static void control(uint32_t n)                 /* once a chunk: the slow things
     }
     arcm = arc * sl_ds;
     en_arc = arcm;
-    pl_decay += ((en_frozen ? 0.9995f : tr_pl > 0.0f ? tr_pl : pl_decay_t) - pl_decay) * 0.002f;   /* (a Segue's: held) */
+    pl_decay += ((en_frozen || (!en_gen_on && de_rfreeze) ? 0.9995f : tr_pl > 0.0f ? tr_pl : pl_decay_t) - pl_decay) *
+                0.002f;   /* (a Segue's: held; dubengine's Freeze too) */
     pl_dd2 = fm_clampf(pl_decay + 0.15f, 0.25f, 0.5f);
     rev_in_gain += ((en_frozen ? 0.0f : 1.0f) - rev_in_gain) * 0.01f;
     if (tr_fwait > 0 && (tr_fwait -= (int32_t)n) <= 0)

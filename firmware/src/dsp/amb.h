@@ -257,6 +257,8 @@ enum {
     SY_L2RATE, SY_L2SHAPE, SY_L2DST, SY_L2AMT, SY_L2SYNC,  /* LFO 2 */
     SY_DTIME, SY_DFB, SY_DMIX, SY_DTONE, SY_DWOW, SY_DDRIVE,     /* Delay: time, feedback %, mix, tone, wow, drive */
     SY_RDECAY, SY_RMIX, SY_RPRE, SY_RDAMP, SY_RLOW, SY_RWIDTH,   /* Reverb: decay, mix, pre-delay, damping, low cut, width */
+    SY_RSIZE, SY_RHICUT, SY_RDIFF, SY_RMODD, SY_RMODR, SY_RFREEZE,   /* Reverb: size, high cut, diffusion, modulation
+                                                                 * depth and rate, freeze */
     SY_N
 };
 typedef struct {

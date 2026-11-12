@@ -49,7 +49,7 @@ A chord sequencer for the FM1. You pick a key, play one key per chord, and recor
 * **LFOs:** two, sine, triangle, saw, square or random; free or synced to the tempo; to any target.
 * **Targets:** pitch, fold, detune, cutoff, reso, level, amp attack, decay and release, delay mix.
 * **Delay** (DUB 1's tape echo): time synced to the tempo, feedback in %, mix, tone, wow and flutter, drive.
-* **Reverb** (DUB 1's plate): decay, mix, pre-delay, damping, low cut, width.
+* **Reverb** (DUB 1's plate), two pages: decay, size, pre-delay, mix, width, high cut; damping, diffusion, mod depth, mod rate, low cut, freeze.
 
 ## 5a. Kept from DUB 1
 

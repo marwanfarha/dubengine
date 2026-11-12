@@ -14,7 +14,7 @@
  *               chord on a step or takes it off, a step held and a knob turned locks it (Chord, Voicing, Octave,
  *               Length) */
 
-enum { DE_PLAY, DE_PATTERN, DE_OSC, DE_FILT, DE_AENV, DE_FENV, DE_E1, DE_E2, DE_L1, DE_L2, DE_DELAY, DE_REVERB, DE_NPAGE };
+enum { DE_PLAY, DE_PATTERN, DE_OSC, DE_FILT, DE_AENV, DE_FENV, DE_E1, DE_E2, DE_L1, DE_L2, DE_DELAY, DE_REVERB, DE_REVERB2, DE_NPAGE };
 /* the sound pages: each its four knobs (a synth parameter, SY_*; DE_P + a DUB-1 parameter, P_*), and ALGORITHM's and
  * PRESETS' (-1 none) */
 #define DE_P 1000
@@ -29,10 +29,11 @@ static const int16_t DE_KNOBS[DE_NPAGE][6] = {
     {SY_L1RATE, SY_L1SHAPE, SY_L1DST, SY_L1AMT, SY_L1SYNC, -1},
     {SY_L2RATE, SY_L2SHAPE, SY_L2DST, SY_L2AMT, SY_L2SYNC, -1},
     {SY_DTIME, SY_DFB, SY_DMIX, SY_DTONE, SY_DWOW, SY_DDRIVE},
-    {SY_RDECAY, SY_RMIX, SY_RPRE, SY_RDAMP, SY_RLOW, SY_RWIDTH},
+    {SY_RDECAY, SY_RSIZE, SY_RPRE, SY_RMIX, SY_RWIDTH, SY_RHICUT},
+    {SY_RDAMP, SY_RDIFF, SY_RMODD, SY_RMODR, SY_RLOW, SY_RFREEZE},
 };
 static const char *const DE_PAGE_NAME[DE_NPAGE] = {"PLAY", "PATTERN", "OSC", "FILTER", "AMP ENV", "FILTER ENV", "ENV 1",
-                                                   "ENV 2", "LFO 1", "LFO 2", "DELAY", "REVERB"};
+                                                   "ENV 2", "LFO 1", "LFO 2", "DELAY", "REVERB", "REVERB 2"};
 static const uint8_t DE_ENV_CYCLE[6] = {DE_OSC, DE_FILT, DE_AENV, DE_FENV, DE_E1, DE_E2};
 static int de_sound_page(int p) { return p >= DE_OSC && p < DE_NPAGE; }
 #define DE_HOLD_MS 1500u                         /* SEQ held: clear */
@@ -172,8 +173,8 @@ static void de_button(int b)                    /* a press */
     case B_LFO:
         de.page = de.page == DE_L1 ? DE_L2 : DE_L1;
         break;
-    case B_FX:                                   /* Delay, Reverb, in turn */
-        de.page = de.page == DE_DELAY ? DE_REVERB : DE_DELAY;
+    case B_FX:                                   /* Delay, Reverb, Reverb 2, in turn */
+        de.page = de.page == DE_DELAY ? DE_REVERB : de.page == DE_REVERB ? DE_REVERB2 : DE_DELAY;
         break;
     case B_SEQ:
         de.page = DE_PATTERN;
@@ -316,6 +317,7 @@ static void de_param_text(int id, char *b)        /* its value as shown */
     case SY_DTIME: de_cat(b, EN_DTIME_NAME[v % EN_NDTIME]); return;
     case SY_DFB: case SY_DMIX: case SY_RMIX: de_num(b, v); de_cat(b, "%"); return;
     case SY_RPRE: de_num(b, 1 + v); de_cat(b, "ms"); return;
+    case SY_RFREEZE: de_cat(b, v ? "On" : "Off"); return;
     default: break;
     }
     if (SYN_INFO[id].lo < 0 && v > 0)
@@ -513,7 +515,7 @@ static void de_draw_sound(void)                  /* a sound page: its picture, a
                 cv_rect((int)x, y0 + h - hh, 4, hh, mix(K_PAD_T, K_PAD, 16 - (int)(16.0f * (float)en_syn[SY_DTONE] * 0.004f)));
             lv *= fb;
         }
-    } else if (pg == DE_REVERB) {                /* the tail: the pre-delay's gap, then the decay, as Mix sends it */
+    } else if (pg == DE_REVERB || pg == DE_REVERB2) {   /* the tail: the pre-delay's gap, then the decay, as Mix sends it */
         const float mx = fm_minf(2.0f * (float)en_syn[SY_RMIX] * 0.01f, 1.0f),
                     dk = 0.45f + 0.0051f * (float)en_syn[SY_RDECAY], pre = 2.0f + 0.25f * (float)en_syn[SY_RPRE];
         cv_rect(x0, ym, w, 1, K_BG);

@@ -26,7 +26,7 @@ How the FM1's controls work for picking a key, keeping time and recording chord 
 | **OCT− / OCT+** | Outside step edit: the keys' octave. In step edit: the step page (1 to 16, 17 to 32, and so on). |
 | **ENV** | The sound pages in turn: Osc, Filter, Amp env, Filter env, Env 1, Env 2. |
 | **LFO** | LFO 1, LFO 2. |
-| **FX** | Delay, Reverb, in turn. |
+| **FX** | Delay, Reverb, Reverb 2, in turn. |
 
 EDIT, SAVE and ARP are left for Randomise and the FM pings later.
 
@@ -44,9 +44,10 @@ EDIT, SAVE and ARP are left for Randomise and the FM pings later.
 | **Env 1, Env 2** (ENV) | Attack | Decay | Sustain | Release |
 | **LFO 1, LFO 2** (LFO) | Rate | Shape (sine, triangle, saw, square, random) | Target | Depth (±) |
 | **Delay** (FX) | Time (1/16 to 1 bar, dotted and triplets) | Feedback (0 to 110%) | Mix | Tone |
-| **Reverb** (FX) | Decay | Mix | Pre-delay (1 to 100 ms) | Damping |
+| **Reverb** (FX) | Decay | Size | Pre-delay (1 to 100 ms) | Mix |
+| **Reverb 2** (FX) | Damping | Diffusion | Mod depth | Mod rate |
 
-On Env 1 and Env 2, ALGORITHM picks the target and PRESETS the depth (±). On the LFOs, ALGORITHM syncs the rate to the tempo (Free, 4 bars to 1/16). On Delay, ALGORITHM is Wow (tape sway and flutter) and PRESETS is Drive (tape saturation). On Reverb, ALGORITHM is Low cut and PRESETS is Width.
+On Env 1 and Env 2, ALGORITHM picks the target and PRESETS the depth (±). On the LFOs, ALGORITHM syncs the rate to the tempo (Free, 4 bars to 1/16). On Delay, ALGORITHM is Wow (tape sway and flutter) and PRESETS is Drive (tape saturation). On Reverb, ALGORITHM is Width and PRESETS is High cut. On Reverb 2, ALGORITHM is Low cut and PRESETS is Freeze (the tail held, nothing new in).
 
 Mix on both: 0 is dry only, 50 is dry and wet at full, 100 is wet only. Feedback past 100% makes the delay swell on itself (the tape saturates, so it doesn't run away).
 
