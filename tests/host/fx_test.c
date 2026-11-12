@@ -89,6 +89,18 @@ int main(void)
     b = tail(1500, 1000);
     CHECK(b > 3.0f * a, "Decay 100 rings on past Decay 0 (%.3f against %.3f, 1.5 s after)", (double)b, (double)a);
 
+    /* Free time: Sync off, ~300 ms; the repeat lands there, not before */
+    reset();
+    set(SY_DMIX, 100), set(SY_DFB, 0), set(SY_DSYNC, 0), set(SY_DMS, 59);
+    run_ms(50);
+    CHECK(en_delay_ms(59) > 290.0f && en_delay_ms(59) < 310.0f, "Free time 59 is ~300 ms (%.0f)", (double)en_delay_ms(59));
+    en_key_chord(60, 1);
+    run_ms(40);
+    en_key_chord(60, 0);
+    a = run_ms(200);                             /* (40 .. 240 ms: nothing yet) */
+    b = run_ms(120);                             /* (240 .. 360 ms: the repeat) */
+    CHECK(b > 5.0f * a, "Free: the repeat at ~300 ms (%.3f there, %.3f before)", (double)b, (double)a);
+
     /* Size: a small room dies sooner than a big one */
     reset();
     set(SY_RMIX, 50), set(SY_RDECAY, 80), set(SY_RSIZE, 0);

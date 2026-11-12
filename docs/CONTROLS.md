@@ -22,7 +22,7 @@ How the FM1's controls work for picking a key, keeping time and recording chord 
 | **HOME** | Play page (key, tempo, voicing). |
 | **SEQ** | Pattern page (length, step value). |
 | **SEQ** held 1.5 s | Clear the pattern. The screen says CLEARED, and SEQ held again within 5 s brings it back. |
-| **GLO** held | Save. |
+| **GLO** held | Save the pattern, the sound, the key and the tempo now. They also save by themselves after 3 s of quiet while stopped. |
 | **OCT− / OCT+** | Outside step edit: the keys' octave. In step edit: the step page (1 to 16, 17 to 32, and so on). |
 | **ENV** | The sound pages in turn: Osc, Filter, Amp env, Filter env, Env 1, Env 2. |
 | **LFO** | LFO 1, LFO 2. |
@@ -43,11 +43,11 @@ EDIT, SAVE and ARP are left for Randomise and the FM pings later.
 | **Filter env** (ENV) | Attack | Decay | Sustain | Release |
 | **Env 1, Env 2** (ENV) | Attack | Decay | Sustain | Release |
 | **LFO 1, LFO 2** (LFO) | Rate | Shape (sine, triangle, saw, square, random) | Target | Depth (±) |
-| **Delay** (FX) | Time (1/16 to 1 bar, dotted and triplets) | Feedback (0 to 110%) | Mix | Tone |
+| **Delay** (FX) | Time (Sync: 1/16 to 1 bar, dotted and triplets; Free: 20 ms to 2 s) | Feedback (0 to 110%) | Mix | Tone |
 | **Reverb** (FX) | Decay | Size | Pre-delay (1 to 100 ms) | Mix |
 | **Reverb 2** (FX) | Damping | Diffusion | Mod depth | Mod rate |
 
-On Env 1 and Env 2, ALGORITHM picks the target and PRESETS the depth (±). On the LFOs, ALGORITHM syncs the rate to the tempo (Free, 4 bars to 1/16). On Delay, ALGORITHM is Wow (tape sway and flutter) and PRESETS is Drive (tape saturation). On Reverb, ALGORITHM is Width and PRESETS is High cut. On Reverb 2, ALGORITHM is Low cut and PRESETS is Freeze (the tail held, nothing new in).
+On Env 1 and Env 2, ALGORITHM picks the target and PRESETS the depth (±). On the LFOs, ALGORITHM syncs the rate to the tempo (Free, 4 bars to 1/16). On Delay, SELECT switches Sync and Free, ALGORITHM is Wow (tape sway and flutter) and PRESETS is Drive (tape saturation). On Reverb, ALGORITHM is Width and PRESETS is High cut. On Reverb 2, ALGORITHM is Low cut and PRESETS is Freeze (the tail held, nothing new in).
 
 Mix on both: 0 is dry only, 50 is dry and wet at full, 100 is wet only. Feedback past 100% makes the delay swell on itself (the tape saturates, so it doesn't run away).
 
@@ -55,7 +55,7 @@ Targets: Pitch, Fold, Detune, Cutoff, Reso, Level, Amp attack, Amp decay, Amp re
 
 Each sound page draws what it sets: the wave, the filter's curve, the envelope, the LFO, the delay's repeats, the reverb's tail.
 
-MASTER is volume. SELECT isn't used yet.
+MASTER is volume. SELECT is only used on the Delay page so far.
 
 ## Live recording (playing, REC on)
 
@@ -91,7 +91,6 @@ MASTER is volume. SELECT isn't used yet.
 
 ## Not yet
 
-* Saving patterns (the key and tempo are saved; the pattern isn't yet).
 * Following the Digitakt's clock.
 * Locrian, step locks for level, filter and echo send.
-* Saving the sound settings (they go in with pattern saving).
+* More than one pattern and sound slot.

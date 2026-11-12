@@ -26,8 +26,9 @@ Every chord comes from its own synth: two oscillators a voice (sine, triangle, s
 | Metronome, pattern length, step value, live recording | Done |
 | Step edit, step locks for chord, voicing, octave, length | Done |
 | Synth: 4 waves, fold, filter, amp and filter envelopes, 2 mod envs, 2 LFOs | Done |
-| Delay page (time, feedback, mix, tone, wow, drive) and two Reverb pages (decay, size, pre-delay, mix, width, high cut, damping, diffusion, modulation, low cut, freeze) | Done |
-| Saving patterns and sounds | Next |
+| Delay page (sync or free time, feedback, mix, tone, wow, drive) and two Reverb pages (decay, size, pre-delay, mix, width, high cut, damping, diffusion, modulation, low cut, freeze) | Done |
+| Saving the pattern and the sound (by themselves, or GLO held) | Done |
+| Several pattern and sound slots | Next |
 | Digitakt clock sync | Planned |
 | Randomise and Evolve | Planned |
 

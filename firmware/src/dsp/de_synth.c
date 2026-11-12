@@ -39,7 +39,9 @@ const en_syn_info_t SYN_INFO[SY_N] = {
     {"Low cut", 0, 100, 30}, {"Width", 0, 100, 70},
     {"Size", 0, 100, 80}, {"High cut", 0, 100, 70}, {"Diffusion", 0, 100, 75}, {"Mod depth", 0, 100, 40},
     {"Mod rate", 0, 100, 30}, {"Freeze", 0, 1, 0},
+    {"Mode", 0, 1, 1}, {"Time", 0, 100, 60},
 };
+float en_delay_ms(int v) { return 20.0f * fm_exp2f((float)v * 0.0664f); }   /* Free: 20 ms .. 2 s */
 volatile int16_t en_syn[SY_N];
 volatile float en_syn_amp;
 
@@ -84,7 +86,12 @@ static void syn_fx(void)
 }
 static inline int de_pre_n(void) { return de_pre; }
 static inline float pl_damp_k(void) { return en_gen_on ? 0.64f : de_pdamp; }
-static float de_dtime_beats(void) { return DTIME_BEATS[(unsigned)en_syn[SY_DTIME] < EN_NDTIME ? en_syn[SY_DTIME] : 3]; }
+static float de_dtime_beats(void)                /* the delay's time in beats: Sync's division, or Free's ms at the tempo */
+{
+    if (!en_syn[SY_DSYNC])
+        return en_delay_ms(en_syn[SY_DMS]) * 0.001f * (bpm_now > 0.0f ? bpm_now : 120.0f) * (1.0f / 60.0f);
+    return DTIME_BEATS[(unsigned)en_syn[SY_DTIME] < EN_NDTIME ? en_syn[SY_DTIME] : 3];
+}
 static inline float de_wow_step(void)             /* a tape sample on: the sway (~0.6 Hz) and the flutter (~6.5 Hz), -1..1 */
 {
     de_wph1 += 0.6f / TAPE_SR;

@@ -1,0 +1,41 @@
+# dubengine: the pattern and the sound saved, and back after a restart: by itself once things are quiet, and with GLO held
+wait 3000
+# a pattern: step edit, two steps; the Pattern page: 32 steps
+tap SEQ
+spin K1 16
+wait 100
+expect seqlen 32
+tap REC
+tapkey w0
+tapkey w4
+tap REC
+expect seqon 2
+# the sound: Osc's wave to Square, the Delay's Feedback to 75, Free time
+tap ENV
+spin K1 1
+expect syn0 3
+tap FX
+spin K2 10
+expect syn39 75
+spin SELECT 1
+expect syn56 0
+# quiet for 5 s: saved by itself
+wait 5000
+reboot
+wait 500
+expect seqlen 32
+expect seqon 2
+expect syn0 3
+expect syn39 75
+expect syn56 0
+# a change, saved with GLO held
+tap ENV
+spin K2 10
+expect syn1 20
+press GLO
+wait 1200
+release GLO
+reboot
+wait 500
+expect syn1 20
+expect seqon 2

@@ -36,6 +36,12 @@ static const char *const DE_PAGE_NAME[DE_NPAGE] = {"PLAY", "PATTERN", "OSC", "FI
                                                    "ENV 2", "LFO 1", "LFO 2", "DELAY", "REVERB", "REVERB 2"};
 static const uint8_t DE_ENV_CYCLE[6] = {DE_OSC, DE_FILT, DE_AENV, DE_FENV, DE_E1, DE_E2};
 static int de_sound_page(int p) { return p >= DE_OSC && p < DE_NPAGE; }
+static int de_kid(int pg, int i)                 /* a sound page's control i: the Delay's Time the free one in Free */
+{
+    if (pg == DE_DELAY && i == 0 && !en_syn[SY_DSYNC])
+        return SY_DMS;
+    return DE_KNOBS[pg][i];
+}
 #define DE_HOLD_MS 1500u                         /* SEQ held: clear */
 #define DE_UNDO_MS 5000u                         /* (then SEQ held again: back) */
 #define DE_SAVE_MS 1000u                         /* GLO held: save */
@@ -119,6 +125,75 @@ static void de_chord_name(const en_step_t *st, char *b)   /* "Cm", "Ddim", "Eb" 
 static int de_nsteps(void) { return en_seq_len; }
 static int de_spages(void) { return (de_nsteps() + 15) / 16; }
 
+/* ---------------------------------------------------------------- saving --- */
+/* The pattern and the sound, kept in flash (OBJ_DE, storage.c: A/B copies, a torn write leaves the last one). The key and
+ * the tempo are the project's (OBJ_PROJ). Saved with GLO held, and by itself once things are quiet: stopped, nothing
+ * touched for 3 s, nothing ringing (a save stops the audio for a moment while the flash is erased). */
+#define DE_SAVE_MAGIC 0x474E4544u                /* "DENG" */
+#define DE_SAVE_VER 1u
+typedef struct {
+    uint32_t magic;
+    uint16_t ver, nsyn;                          /* (nsyn: the sound's parameters kept; a later firmware reads what's there) */
+    uint8_t len, div, metro_on, metro_lvl, voicing, rsv[3];
+    uint8_t step[EN_SEQ_MAX][5];                 /* on, degree, octave, voicing, length */
+    int16_t syn[SY_N];
+} de_save_t;
+static de_save_t de_sv;                          /* (the state as last read: saving and comparing) */
+static uint32_t de_saved_sum;
+
+static void de_gather(de_save_t *v)
+{
+    int i;
+    memset(v, 0, sizeof *v);
+    v->magic = DE_SAVE_MAGIC, v->ver = DE_SAVE_VER, v->nsyn = SY_N;
+    v->len = en_seq_len, v->div = en_seq_div, v->metro_on = en_metro_on, v->metro_lvl = en_metro_lvl, v->voicing = de.voicing;
+    for (i = 0; i < EN_SEQ_MAX; i++) {
+        v->step[i][0] = en_seq[i].on, v->step[i][1] = en_seq[i].deg, v->step[i][2] = en_seq[i].oct;
+        v->step[i][3] = en_seq[i].voi, v->step[i][4] = en_seq[i].len;
+    }
+    for (i = 0; i < SY_N; i++)
+        v->syn[i] = en_syn[i];
+}
+static uint32_t de_sum(const de_save_t *v)       /* (has anything changed since the last save) */
+{
+    const uint8_t *b = (const uint8_t *)v;
+    uint32_t h = 2166136261u, i;
+    for (i = 0; i < sizeof *v; i++)
+        h = (h ^ b[i]) * 16777619u;
+    return h;
+}
+static int de_save(void)                         /* 0: saved */
+{
+    int rc;
+    de_gather(&de_sv);
+    rc = plat_store_save(OBJ_DE, &de_sv, sizeof de_sv);
+    if (rc == 0)
+        de_saved_sum = de_sum(&de_sv);
+    if (ui.dirty && project_save() == 0)         /* (the key and the tempo) */
+        ui.dirty = 0;
+    return rc;
+}
+static void de_load(void)                         /* the last saved pattern and sound, to the engine */
+{
+    const int n = plat_store_load(OBJ_DE, &de_sv, sizeof de_sv);
+    int i;
+    if (n < (int)(sizeof de_sv - sizeof de_sv.syn) || de_sv.magic != DE_SAVE_MAGIC || de_sv.ver != DE_SAVE_VER)
+        return;                                  /* (nothing saved yet: the defaults) */
+    en_seq_length(de_sv.len);
+    en_seq_division(de_sv.div);
+    en_metro(de_sv.metro_on, de_sv.metro_lvl);
+    de.voicing = (uint8_t)(de_sv.voicing < 3 ? de_sv.voicing : EN_VO_FIRST);
+    en_voicing_set(de.voicing);
+    for (i = 0; i < EN_SEQ_MAX; i++) {
+        en_step_t t;
+        t.on = de_sv.step[i][0], t.deg = de_sv.step[i][1], t.oct = de_sv.step[i][2], t.voi = de_sv.step[i][3];
+        t.len = de_sv.step[i][4];
+        en_seq_step(i, &t);
+    }
+    for (i = 0; i < SY_N && i < de_sv.nsyn && (int)(sizeof de_sv - sizeof de_sv.syn + 2u * (uint32_t)(i + 1)) <= n; i++)
+        en_syn_set(i, de_sv.syn[i]);
+}
+
 static void de_init(void)
 {
     int i;
@@ -132,6 +207,8 @@ static void de_init(void)
         de.held_done[i] = 0;
     en_voicing_set(de.voicing);
     en_metro(0, 60);
+    de_load();
+    de_saved_sum = 0;                            /* (compared once the engine has it all: de_autosave) */
 }
 
 /* ---------------------------------------------------------------- input --- */
@@ -212,7 +289,8 @@ static void de_hold(int b, uint32_t ms)          /* held this long: SEQ clears (
         }
     } else if (b == B_GLO && ms >= DE_SAVE_MS) {
         de.held_done[b] = 1;
-        de_say(project_save() == 0 ? "SAVED" : "SAVE FAILED");
+        ui.dirty = 1;
+        de_say(de_save() == 0 ? "SAVED" : "SAVE FAILED");
     }
 }
 
@@ -318,6 +396,13 @@ static void de_param_text(int id, char *b)        /* its value as shown */
     case SY_DFB: case SY_DMIX: case SY_RMIX: de_num(b, v); de_cat(b, "%"); return;
     case SY_RPRE: de_num(b, 1 + v); de_cat(b, "ms"); return;
     case SY_RFREEZE: de_cat(b, v ? "On" : "Off"); return;
+    case SY_DSYNC: de_cat(b, v ? "Sync" : "Free"); return;
+    case SY_DMS: {
+        const int ms = (int)(en_delay_ms(v) + 0.5f);
+        de_num(b, ms < 1000 ? ms : ms / 10 * 10);
+        de_cat(b, "ms");
+        return;
+    }
     default: break;
     }
     if (SYN_INFO[id].lo < 0 && v > 0)
@@ -355,7 +440,7 @@ static void de_knob(int k, int d)               /* KNOB 1..4 (k 0..3) turned d d
         return;
     }
     if (de_sound_page(de.page)) {
-        de_param_turn(DE_KNOBS[de.page][k], d);
+        de_param_turn(de_kid(de.page, k), d);
         return;
     }
     if (de.page == DE_PLAY) {
@@ -420,12 +505,19 @@ static void de_input(void)
         const int32_t da = plat_enc(EN_ALGO), dp = plat_enc(EN_PRESET);
         if (de_sound_page(de.page) && !(de.edit && de.step >= 0)) {
             if (da)
-                de_param_turn(DE_KNOBS[de.page][4], (int)da), de.act_t = now;
+                de_param_turn(de_kid(de.page, 4), (int)da), de.act_t = now;
             if (dp)
-                de_param_turn(DE_KNOBS[de.page][5], (int)dp), de.act_t = now;
+                de_param_turn(de_kid(de.page, 5), (int)dp), de.act_t = now;
         }
     }
-    plat_enc(EN_SELECT);                         /* (not used yet: its turns let go) */
+    {   /* SELECT: on the Delay page, Sync or Free */
+        const int32_t ds = plat_enc(EN_SELECT);
+        if (ds && de.page == DE_DELAY && !(de.edit && de.step >= 0)) {
+            en_syn_set(SY_DSYNC, ds > 0 ? 0 : 1);
+            en_syn[SY_DSYNC] = (int16_t)(ds > 0 ? 0 : 1);
+            de.act_t = now;
+        }
+    }
     if (btn || keys || ch)
         de.act_t = now;
     midi_in();
@@ -502,7 +594,8 @@ static void de_draw_sound(void)                  /* a sound page: its picture, a
                                                   * first as loud as Mix sends; the dry bar as loud as Mix leaves it */
         static const float BEATS[EN_NDTIME] = {0.25f, 0.333f, 0.5f, 0.75f, 0.667f, 1.0f, 1.5f, 2.0f, 3.0f, 4.0f};
         const float fb = fm_minf((float)en_syn[SY_DFB] * 0.01f, 1.0f), mx = (float)en_syn[SY_DMIX] * 0.01f,
-                    sp = 26.0f * BEATS[en_syn[SY_DTIME] % EN_NDTIME];
+                    sp = en_syn[SY_DSYNC] ? 26.0f * BEATS[en_syn[SY_DTIME] % EN_NDTIME]
+                                          : fm_maxf(26.0f * en_delay_ms(en_syn[SY_DMS]) * 0.001f * (float)proj.par[P_TEMPO] / 60.0f, 3.0f);
         float lv = fm_minf(2.0f * mx, 1.0f), x = (float)x0 + sp;
         const int hd = (int)((float)(h - 4) * fm_minf(2.0f * (1.0f - mx), 1.0f));
         cv_rect(x0, ym, w, 1, K_BG);
@@ -566,6 +659,10 @@ static void de_draw_sound(void)                  /* a sound page: its picture, a
                 cv_line(x0 + i - 1, py, x0 + i, y, K_BELL);
             py = y;
         }
+    }
+    if (pg == DE_DELAY) {                         /* (SELECT: Sync or Free) */
+        int32_t x = cv_text(150, 98, &FONT_XS, "SELECT  ", K_DIM);
+        cv_text(x, 98, &FONT_XS, en_syn[SY_DSYNC] ? "Sync" : "Free", K_TEXT);
     }
     /* the extra knobs: Env 1 and Env 2's target (ALGORITHM) and depth (PRESETS); the LFOs' sync (ALGORITHM) */
     for (i = 4; i < 6; i++) {
@@ -662,8 +759,8 @@ static void de_draw_foot(void)
         de_num(val[3], t.len);
     } else if (de_sound_page(de.page)) {
         for (i = 0; i < 4; i++) {
-            lab[i] = de_param_name(DE_KNOBS[de.page][i]);
-            de_param_text(DE_KNOBS[de.page][i], val[i]);
+            lab[i] = de_param_name(de_kid(de.page, i));
+            de_param_text(de_kid(de.page, i), val[i]);
         }
     } else if (de.page == DE_PLAY) {
         lab[0] = "Tempo", lab[1] = "Root", lab[2] = "Mode", lab[3] = "Voicing";
@@ -723,11 +820,22 @@ static void de_leds(void)
     plat_leds(b, k);
 }
 
-static void de_autosave(void)                    /* the key and the tempo, kept: quietly, never while playing */
+static void de_autosave(void)                    /* the pattern, the sound, the key, the tempo, kept: quietly, never
+                                                  * while playing */
 {
-    if (ui.dirty && !en_seq_playing && !de.btn && !de.keys && plat_ms() - de.act_t > 3000u && en_pad_level < 0.01f)
-        if (project_save() == 0)
-            ui.dirty = 0;
+    static uint32_t last_t;
+    uint32_t sum, now = plat_ms();
+    if (now - last_t < 500u)                     /* (looked at twice a second) */
+        return;
+    last_t = now;
+    de_gather(&de_sv);
+    sum = de_sum(&de_sv);
+    if (!de_saved_sum && en_queue_left() == 0u && now > 2000u)   /* (after boot: what was loaded is what's saved) */
+        de_saved_sum = sum;
+    if ((sum == de_saved_sum && !ui.dirty) || en_seq_playing || de.btn || de.keys || now - de.act_t < 3000u ||
+        en_pad_level > 0.01f)
+        return;
+    de_save();
 }
 
 static void de_frame(void)

@@ -259,6 +259,7 @@ enum {
     SY_RDECAY, SY_RMIX, SY_RPRE, SY_RDAMP, SY_RLOW, SY_RWIDTH,   /* Reverb: decay, mix, pre-delay, damping, low cut, width */
     SY_RSIZE, SY_RHICUT, SY_RDIFF, SY_RMODD, SY_RMODR, SY_RFREEZE,   /* Reverb: size, high cut, diffusion, modulation
                                                                  * depth and rate, freeze */
+    SY_DSYNC, SY_DMS,                                      /* Delay: Sync (1) or Free (0); the free time (0..100: 20 ms .. 2 s) */
     SY_N
 };
 typedef struct {
@@ -275,7 +276,8 @@ extern const char *const EN_DTIME_NAME[EN_NDTIME];
 extern const char *const EN_SYNC_NAME[EN_NSYNC];
 extern volatile int16_t en_syn[SY_N];
 void en_syn_set(int p, int v);
-extern volatile float en_syn_amp;                  /* (UI, tests) the amp envelope now, 0..1 */
+extern volatile float en_syn_amp;
+float en_delay_ms(int v);                          /* the Delay's Free time, SY_DMS's value in ms */                  /* (UI, tests) the amp envelope now, 0..1 */
 void en_next(void);                            /* the next chord: on the next bar (now while resting) */
 void en_freeze(int on);
 void en_seed(uint32_t s);                      /* stir some entropy into the generators */
