@@ -3526,7 +3526,8 @@ EN_COLD static void tick(void)
 /* (the classics pass: the plate at half the rate, 22.05 kHz: a quarter of the engine's time halved, its memory too;
  * nothing of it above ~10 kHz was heard: its input band-limited, its damping) */
 #define DS(n) (((n) * 7409 + 5000) / 10000)           /* 22050 / 29761 */
-#define PRE_N 662                                    /* 30 ms */
+#define PRE_N 2205                                   /* (dubengine: room for 100 ms of pre-delay) */
+#define PRE_N_DUB 662                                /* DUB-1's: 30 ms */
 #define EXC DS(16)
 enum { L_PRE, L_IN1, L_IN2, L_IN3, L_IN4, L_APL, L_D1L, L_AP2L, L_D2L, L_APR, L_D1R, L_AP2R, L_D2R, L_N };
 static const int DL_LEN[L_N] = {PRE_N, DS(142), DS(107), DS(379), DS(277), DS(672) + EXC + 2, DS(4453), DS(1800),
@@ -3568,11 +3569,13 @@ static inline float allpass_mod(dl_t *d, float len, float x, float g)
     return z + g * v;
 }
 
+static inline int de_pre_n(void);                /* (de_synth.c: the Reverb page's pre-delay, its damping) */
+static inline float pl_damp_k(void);
 static inline void reverb(float in, float *ol, float *or_)
 {
     float x, a, b, fb_l = tap(&dl[L_D2R], DS(3163)), fb_r = tap(&dl[L_D2L], DS(3720));
     push(&dl[L_PRE], in);
-    x = tap(&dl[L_PRE], PRE_N);
+    x = tap(&dl[L_PRE], en_gen_on ? PRE_N_DUB : de_pre_n());
     pl_bw += 0.84f * (x - pl_bw);                /* (0.6 at the full rate) */
     x = allpass(&dl[L_IN1], DS(142), pl_bw, 0.75f);
     x = allpass(&dl[L_IN2], DS(107), x, 0.75f);
@@ -3586,13 +3589,13 @@ static inline void reverb(float in, float *ol, float *or_)
     a = allpass_mod(&dl[L_APL], (float)DS(672) + (float)EXC * lfo_s, x + pl_decay * fb_l, -0.7f);
     push(&dl[L_D1L], a);
     b = tap(&dl[L_D1L], DS(4453));
-    pl_damp_l += 0.64f * (b - pl_damp_l);        /* (0.4 at the full rate) */
+    pl_damp_l += pl_damp_k() * (b - pl_damp_l);   /* (0.4 at the full rate: DUB-1's 0.64) */
     b = allpass(&dl[L_AP2L], DS(1800), pl_damp_l * pl_decay, pl_dd2);
     push(&dl[L_D2L], b);
     a = allpass_mod(&dl[L_APR], (float)DS(908) + (float)EXC * lfo_c, x + pl_decay * fb_r, -0.7f);
     push(&dl[L_D1R], a);
     b = tap(&dl[L_D1R], DS(4217));
-    pl_damp_r += 0.64f * (b - pl_damp_r);
+    pl_damp_r += pl_damp_k() * (b - pl_damp_r);
     b = allpass(&dl[L_AP2R], DS(2656), pl_damp_r * pl_decay, pl_dd2);
     push(&dl[L_D2R], b);
     *ol = 0.6f * (tap(&dl[L_D1R], DS(266)) + tap(&dl[L_D1R], DS(2974)) - tap(&dl[L_AP2R], DS(1913)) +
@@ -3680,6 +3683,7 @@ static int etime_cap_ds(int v)
     const float t = par[P_TEMPO] > 0 ? ETIME_BEATS[(unsigned)v < 6u ? v : 0] * 60.0f / (float)par[P_TEMPO] : 0.0f;
     return t * TAPE_SR > (float)(TAPE_N - 8) ? (int)((float)(TAPE_N - 8) / TAPE_SR * 10.0f) : 0;
 }
+static float de_dtime_beats(void);               /* (de_synth.c: the Delay page's time) */
 EN_COLD static void echo_time(void)
 {
     int i = par[P_ETIME];
@@ -3687,7 +3691,7 @@ EN_COLD static void echo_time(void)
     if (bpm_now <= 0.0f)
         return;                                  /* not yet (en_init applies in order) */
     beat = 60.0f / bpm_now;                      /* (the tempo heard: Tempo's, or a Mix's glide) */
-    t = (tr_beats > 0.0f ? tr_beats : ETIME_BEATS[i]) * beat;
+    t = (tr_beats > 0.0f ? tr_beats : !en_gen_on ? de_dtime_beats() : ETIME_BEATS[i]) * beat;
     if (t * TAPE_SR > (float)(TAPE_N - 8))
         t = (float)(TAPE_N - 8) / TAPE_SR;
     echo_len_t = t * TAPE_SR;
@@ -3704,7 +3708,8 @@ static void heads_step(uint32_t n)
     int i;
     /* (1.3.0) the loop's gain from the tail's length: whatever the echo's time, the repeats are gone (-60 dB) in
      * Feedback's seconds; long delays vanish as quickly as short ones (Dub and the throws still push past it) */
-    echo_fb = fm_exp2f(-9.966f * ((tr_slew ? echo_len : echo_len_t) * (1.0f / TAPE_SR)) / echo_t60);   /* (a
+    echo_fb = !en_gen_on ? (float)en_syn[SY_DFB] * 0.01f   /* (dubengine: Feedback in %, past 100 it swells) */
+            : fm_exp2f(-9.966f * ((tr_slew ? echo_len : echo_len_t) * (1.0f / TAPE_SR)) / echo_t60);   /* (a
                                                   * Transition's time slewing: the tail as the repeats come now) */
     ec_wd = tr_slew ? ec_wd + (ec_wide - ec_wd) * fm_minf((float)n * (1.0f / (0.5f * EN_SR)), 1.0f) : ec_wide;   /* (the
                                                   * heads' Width; a Transition's new piece's eased in, the held loop's
@@ -3732,6 +3737,8 @@ static void heads_step(uint32_t n)
      * up together */
     dub_up = 0.0f;                               /* (1.3.0: PERFORM's second knob is Wet now, not Dub) */
     sw = fm_clampf(0.45f + 0.5f * arcm + 0.3f * perf_sw + 0.5f * sl_ds * mod[5].v - 0.3f * dub_up, 0.0f, 1.0f);   /* (Dub up: darker) */
+    if (!en_gen_on)                              /* (dubengine: the repeats' colour the Delay page's Tone) */
+        sw = (float)en_syn[SY_DTONE] * 0.01f;
     tape_hpc = 0.12f + 0.24f * sw * sw;          /* (the classics pass: ~220 Hz at the bottom, was ~165) */
     tape_lpc = 0.58f + 0.3f * sw;
 }
@@ -3767,6 +3774,9 @@ static inline float ec_fb(float x)
     return eapf(4, 553, 441, eapf(3, 277, 276, eapf(2, 126, 151, eapf(1, 37, 89, eapf(0, 0, 37, x)))));
 }
 
+static float de_wow, de_drive;                   /* (de_synth.c: the Delay page's Wow and Drive, 0..1) */
+static inline float de_wow_step(void);           /* (de_synth.c) */
+static inline float de_drive_in(float x);
 static inline void echoes(float in, float *el, float *er, float *xl, float *xr)
 {
     float y = (float)plex[plex_w] * (1.0f / 12000.0f);
@@ -3797,6 +3807,8 @@ static inline void echoes(float in, float *el, float *er, float *xl, float *xr)
             echo_len = (float)(TAPE_N - 8);
         head2 += head2_v;
         d = echo_len * (1.0f + 0.002f * sl_ds * mod[5].v);   /* wow */
+        if (!en_gen_on && de_wow > 0.0f)         /* (dubengine: Wow, a slow sway and a faster flutter) */
+            d *= 1.0f + de_wow * (0.0035f * de_wow_step());
         if (d > (float)(TAPE_N - 4))
             d = (float)(TAPE_N - 4);
         h1 = tape_read(d);                       /* (the heads: what comes out, on its time) */
@@ -3823,7 +3835,8 @@ static inline void echoes(float in, float *el, float *er, float *xl, float *xr)
             tape_lp += tape_lpc * (f1 + fb_lean * st_throw * (f2 - f1) - tape_lp);   /* each time round: thinner, darker */
             tape_hp += tape_hpc * (tape_lp - tape_hp);
             fb = ec_fb(tape_lp - tape_hp);       /* (and more dissolved) */
-            w = ec_in(tape_acc * 0.25f) + 0.7f * sat(fb * g * (1.0f / 0.7f));
+            w = ec_in(!en_gen_on && de_drive > 0.0f ? de_drive_in(tape_acc * 0.25f) : tape_acc * 0.25f) +
+                0.7f * sat(fb * g * (1.0f / 0.7f));
             if (++tape_w >= TAPE_N)
                 tape_w = 0;
             tape[tape_w] = s16(w);
@@ -6674,6 +6687,10 @@ static void render_chunk(int32_t *out, uint32_t n, float gain)
                 crash *= 0.99971f;               /* (~80 ms) */
             }
         }
+        if (!en_gen_on) {                        /* (dubengine: the Reverb page's Low cut, on what goes in) */
+            de_rhp += de_rlow * (rin - de_rhp);
+            rin -= de_rhp;
+        }
         cloud(rin * ca * 2.5f * cl_in + pl_back * cloud_amt * 0.22f, &cl, &cr);   /* the grains, into the plate: they bloom;
                                                  * the plate's tail back into the line: the wash grows on itself */
         {   /* the plate, every other sample (its input the pair's mean, its output a line between) */
@@ -6687,6 +6704,10 @@ static void render_chunk(int32_t *out, uint32_t n, float gain)
                 wl = 0.5f * (pl_ol + nl), wr = 0.5f * (pl_or + nr);
                 pl_ol = nl, pl_or = nr;
             }
+        }
+        if (!en_gen_on) {                        /* (dubengine: the Reverb page's Width) */
+            const float m = 0.5f * (wl + wr), sd2 = 0.5f * (wl - wr) * de_rwidth;
+            wl = m + sd2, wr = m - sd2;
         }
         pl_back = 0.5f * (wl + wr);
         cl *= 1.0f + 9.0f * fx_cf;               /* (Freeze: the held cloud brought forward) */

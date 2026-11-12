@@ -14,7 +14,7 @@
  *               chord on a step or takes it off, a step held and a knob turned locks it (Chord, Voicing, Octave,
  *               Length) */
 
-enum { DE_PLAY, DE_PATTERN, DE_OSC, DE_FILT, DE_AENV, DE_FENV, DE_E1, DE_E2, DE_L1, DE_L2, DE_FX, DE_NPAGE };
+enum { DE_PLAY, DE_PATTERN, DE_OSC, DE_FILT, DE_AENV, DE_FENV, DE_E1, DE_E2, DE_L1, DE_L2, DE_DELAY, DE_REVERB, DE_NPAGE };
 /* the sound pages: each its four knobs (a synth parameter, SY_*; DE_P + a DUB-1 parameter, P_*), and ALGORITHM's and
  * PRESETS' (-1 none) */
 #define DE_P 1000
@@ -28,10 +28,11 @@ static const int16_t DE_KNOBS[DE_NPAGE][6] = {
     {SY_2A, SY_2D, SY_2S, SY_2R, SY_2DST, SY_2AMT},
     {SY_L1RATE, SY_L1SHAPE, SY_L1DST, SY_L1AMT, SY_L1SYNC, -1},
     {SY_L2RATE, SY_L2SHAPE, SY_L2DST, SY_L2AMT, SY_L2SYNC, -1},
-    {SY_ECHO, SY_PLATE, DE_P + P_ETIME, DE_P + P_FEEDBACK, -1, -1},
+    {SY_DTIME, SY_DFB, SY_DMIX, SY_DTONE, SY_DWOW, SY_DDRIVE},
+    {SY_RDECAY, SY_RMIX, SY_RPRE, SY_RDAMP, SY_RLOW, SY_RWIDTH},
 };
 static const char *const DE_PAGE_NAME[DE_NPAGE] = {"PLAY", "PATTERN", "OSC", "FILTER", "AMP ENV", "FILTER ENV", "ENV 1",
-                                                   "ENV 2", "LFO 1", "LFO 2", "FX"};
+                                                   "ENV 2", "LFO 1", "LFO 2", "DELAY", "REVERB"};
 static const uint8_t DE_ENV_CYCLE[6] = {DE_OSC, DE_FILT, DE_AENV, DE_FENV, DE_E1, DE_E2};
 static int de_sound_page(int p) { return p >= DE_OSC && p < DE_NPAGE; }
 #define DE_HOLD_MS 1500u                         /* SEQ held: clear */
@@ -171,8 +172,8 @@ static void de_button(int b)                    /* a press */
     case B_LFO:
         de.page = de.page == DE_L1 ? DE_L2 : DE_L1;
         break;
-    case B_FX:
-        de.page = DE_FX;
+    case B_FX:                                   /* Delay, Reverb, in turn */
+        de.page = de.page == DE_DELAY ? DE_REVERB : DE_DELAY;
         break;
     case B_SEQ:
         de.page = DE_PATTERN;
@@ -312,6 +313,9 @@ static void de_param_text(int id, char *b)        /* its value as shown */
     case SY_L1SHAPE: case SY_L2SHAPE: de_cat(b, EN_LS_NAME[v % EN_NLSHAPE]); return;
     case SY_1DST: case SY_2DST: case SY_L1DST: case SY_L2DST: de_cat(b, EN_MD_NAME[v % EN_NMD]); return;
     case SY_L1SYNC: case SY_L2SYNC: de_cat(b, EN_SYNC_NAME[v % EN_NSYNC]); return;
+    case SY_DTIME: de_cat(b, EN_DTIME_NAME[v % EN_NDTIME]); return;
+    case SY_DFB: case SY_DMIX: case SY_RMIX: de_num(b, v); de_cat(b, "%"); return;
+    case SY_RPRE: de_num(b, 1 + v); de_cat(b, "ms"); return;
     default: break;
     }
     if (SYN_INFO[id].lo < 0 && v > 0)
@@ -492,17 +496,34 @@ static void de_draw_sound(void)                  /* a sound page: its picture, a
                 cv_line(x0 + i - 1, py, x0 + i, y, K_PAD);
             py = y;
         }
-    } else if (pg == DE_FX) {                    /* the echo's repeats, each as loud as the feedback leaves it */
-        const float fb = 0.3f + 0.6f * (float)proj.par[P_FEEDBACK] * 0.01f, e = (float)en_syn[SY_ECHO] * 0.01f;
-        float lv = 1.0f;
+    } else if (pg == DE_DELAY) {                 /* the repeats: on the delay's time, each as Feedback leaves it, the
+                                                  * first as loud as Mix sends; the dry bar as loud as Mix leaves it */
+        static const float BEATS[EN_NDTIME] = {0.25f, 0.333f, 0.5f, 0.75f, 0.667f, 1.0f, 1.5f, 2.0f, 3.0f, 4.0f};
+        const float fb = fm_minf((float)en_syn[SY_DFB] * 0.01f, 1.0f), mx = (float)en_syn[SY_DMIX] * 0.01f,
+                    sp = 26.0f * BEATS[en_syn[SY_DTIME] % EN_NDTIME];
+        float lv = fm_minf(2.0f * mx, 1.0f), x = (float)x0 + sp;
+        const int hd = (int)((float)(h - 4) * fm_minf(2.0f * (1.0f - mx), 1.0f));
         cv_rect(x0, ym, w, 1, K_BG);
         cv_rect(x0, y0 + h, w, 1, K_LINE);
-        cv_rect(x0, y0 + 4, 6, h - 4, K_TEXT);   /* (the chord) */
-        for (i = 1; i < 12; i++) {
-            const int hh = (int)((float)(h - 4) * lv * e);
-            lv *= fb;
+        if (hd > 0)
+            cv_rect(x0, y0 + h - hd, 5, hd, K_TEXT);
+        for (i = 0; i < 40 && x < (float)(x0 + w - 4); i++, x += sp) {
+            const int hh = (int)((float)(h - 4) * lv);
             if (hh > 0)
-                cv_rect(x0 + i * 18, y0 + h - hh, 6, hh, K_PAD);
+                cv_rect((int)x, y0 + h - hh, 4, hh, mix(K_PAD_T, K_PAD, 16 - (int)(16.0f * (float)en_syn[SY_DTONE] * 0.004f)));
+            lv *= fb;
+        }
+    } else if (pg == DE_REVERB) {                /* the tail: the pre-delay's gap, then the decay, as Mix sends it */
+        const float mx = fm_minf(2.0f * (float)en_syn[SY_RMIX] * 0.01f, 1.0f),
+                    dk = 0.45f + 0.0051f * (float)en_syn[SY_RDECAY], pre = 2.0f + 0.25f * (float)en_syn[SY_RPRE];
+        cv_rect(x0, ym, w, 1, K_BG);
+        cv_rect(x0, y0 + h, w, 1, K_LINE);
+        cv_rect(x0, y0 + 4, 5, h - 4, K_TEXT);
+        for (i = (int)pre; i < w; i++) {
+            const float t = (float)(i - (int)pre), a = mx * fm_expf(-t * (1.0f - dk) * 0.12f);
+            const int hh = (int)((float)(h - 4) * a);
+            if (hh > 0)
+                cv_rect(x0 + 6 + i, y0 + h - hh, 1, hh, (i & 1) ? K_PAD_T : mix(K_PAD_T, K_PAD, 8));
         }
     } else if (pg == DE_OSC) {                   /* two cycles of the wave, as folded */
         const float fold = (float)en_syn[SY_FOLD] * 0.01f;
@@ -678,7 +699,7 @@ static void de_leds(void)
         b |= 1u << B_REC;
     if (en_metro_on)
         b |= 1u << B_SEL;
-    b |= 1u << (de.page == DE_PLAY ? B_HOME : de.page == DE_PATTERN ? B_SEQ : de.page == DE_FX ? B_FX
+    b |= 1u << (de.page == DE_PLAY ? B_HOME : de.page == DE_PATTERN ? B_SEQ : de.page >= DE_DELAY ? B_FX
                : de.page == DE_L1 || de.page == DE_L2 ? B_LFO : B_ENV);
     if (de.edit) {                               /* the white keys: the step page's steps, the playhead blinking */
         for (i = 0; i < 16; i++) {

@@ -37,8 +37,8 @@ static void reset_sound(void)
     int i;
     for (i = 0; i < SY_N; i++)
         en_syn_set(i, SYN_INFO[i].def);
-    en_syn_set(SY_ECHO, 0);                      /* (dry: what's measured is the voice) */
-    en_syn_set(SY_PLATE, 0);
+    en_syn_set(SY_DMIX, 0);                      /* (dry: what's measured is the voice) */
+    en_syn_set(SY_RMIX, 0);
     run_ms(20);
 }
 static void hold(int ms) { en_key_chord(60, 1); run_ms(ms); }

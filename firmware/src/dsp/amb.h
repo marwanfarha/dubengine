@@ -255,7 +255,8 @@ enum {
     SY_2A, SY_2D, SY_2S, SY_2R, SY_2DST, SY_2AMT,          /* Env 2 */
     SY_L1RATE, SY_L1SHAPE, SY_L1DST, SY_L1AMT, SY_L1SYNC,  /* LFO 1 */
     SY_L2RATE, SY_L2SHAPE, SY_L2DST, SY_L2AMT, SY_L2SYNC,  /* LFO 2 */
-    SY_ECHO, SY_PLATE,                                     /* the sends */
+    SY_DTIME, SY_DFB, SY_DMIX, SY_DTONE, SY_DWOW, SY_DDRIVE,     /* Delay: time, feedback %, mix, tone, wow, drive */
+    SY_RDECAY, SY_RMIX, SY_RPRE, SY_RDAMP, SY_RLOW, SY_RWIDTH,   /* Reverb: decay, mix, pre-delay, damping, low cut, width */
     SY_N
 };
 typedef struct {
@@ -267,6 +268,8 @@ extern const char *const EN_WAVE_NAME[EN_NWAVE];
 extern const char *const EN_LS_NAME[EN_NLSHAPE];
 extern const char *const EN_MD_NAME[EN_NMD];
 #define EN_NSYNC 8                                 /* an LFO's sync: Free, then 4 bars .. 1/16 */
+#define EN_NDTIME 10                               /* the delay's times: 1/16 .. 1 bar */
+extern const char *const EN_DTIME_NAME[EN_NDTIME];
 extern const char *const EN_SYNC_NAME[EN_NSYNC];
 extern volatile int16_t en_syn[SY_N];
 void en_syn_set(int p, int v);

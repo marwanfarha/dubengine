@@ -26,7 +26,7 @@ How the FM1's controls work for picking a key, keeping time and recording chord 
 | **OCT− / OCT+** | Outside step edit: the keys' octave. In step edit: the step page (1 to 16, 17 to 32, and so on). |
 | **ENV** | The sound pages in turn: Osc, Filter, Amp env, Filter env, Env 1, Env 2. |
 | **LFO** | LFO 1, LFO 2. |
-| **FX** | The sends and the echo. |
+| **FX** | Delay, Reverb, in turn. |
 
 EDIT, SAVE and ARP are left for Randomise and the FM pings later.
 
@@ -43,13 +43,16 @@ EDIT, SAVE and ARP are left for Randomise and the FM pings later.
 | **Filter env** (ENV) | Attack | Decay | Sustain | Release |
 | **Env 1, Env 2** (ENV) | Attack | Decay | Sustain | Release |
 | **LFO 1, LFO 2** (LFO) | Rate | Shape (sine, triangle, saw, square, random) | Target | Depth (±) |
-| **FX** | Echo send | Plate send | Echo time | Feedback |
+| **Delay** (FX) | Time (1/16 to 1 bar, dotted and triplets) | Feedback (0 to 110%) | Mix | Tone |
+| **Reverb** (FX) | Decay | Mix | Pre-delay (1 to 100 ms) | Damping |
 
-On Env 1 and Env 2, ALGORITHM picks the target and PRESETS the depth (±). On the LFOs, ALGORITHM syncs the rate to the tempo (Free, 4 bars to 1/16).
+On Env 1 and Env 2, ALGORITHM picks the target and PRESETS the depth (±). On the LFOs, ALGORITHM syncs the rate to the tempo (Free, 4 bars to 1/16). On Delay, ALGORITHM is Wow (tape sway and flutter) and PRESETS is Drive (tape saturation). On Reverb, ALGORITHM is Low cut and PRESETS is Width.
 
-Targets: Pitch, Fold, Detune, Cutoff, Reso, Level, Amp attack, Amp decay, Amp release, Echo send.
+Mix on both: 0 is dry only, 50 is dry and wet at full, 100 is wet only. Feedback past 100% makes the delay swell on itself (the tape saturates, so it doesn't run away).
 
-Each sound page draws what it sets: the wave, the filter's curve, the envelope, the LFO, the echo's repeats.
+Targets: Pitch, Fold, Detune, Cutoff, Reso, Level, Amp attack, Amp decay, Amp release, Delay mix.
+
+Each sound page draws what it sets: the wave, the filter's curve, the envelope, the LFO, the delay's repeats, the reverb's tail.
 
 MASTER is volume. SELECT isn't used yet.
 

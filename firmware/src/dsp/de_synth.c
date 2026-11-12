@@ -14,7 +14,9 @@
 const char *const EN_WAVE_NAME[EN_NWAVE] = {"Sine", "Tri", "Saw", "Square"};
 const char *const EN_LS_NAME[EN_NLSHAPE] = {"Sine", "Tri", "Saw", "Square", "Random"};
 const char *const EN_MD_NAME[EN_NMD] = {"Off", "Pitch", "Fold", "Detune", "Cutoff", "Reso", "Level", "Amp A", "Amp D",
-                                        "Amp R", "Echo"};
+                                        "Amp R", "Delay mix"};
+const char *const EN_DTIME_NAME[EN_NDTIME] = {"1/16", "1/8T", "1/8", "1/8.", "1/4T", "1/4", "1/4.", "1/2", "1/2.", "1 bar"};
+static const float DTIME_BEATS[EN_NDTIME] = {0.25f, 0.3333333f, 0.5f, 0.75f, 0.6666667f, 1.0f, 1.5f, 2.0f, 3.0f, 4.0f};
 const char *const EN_SYNC_NAME[EN_NSYNC] = {"Free", "4 bars", "2 bars", "1 bar", "1/2", "1/4", "1/8", "1/16"};
 static const float SYNC_BEATS[EN_NSYNC] = {0.0f, 16.0f, 8.0f, 4.0f, 2.0f, 1.0f, 0.5f, 0.25f};
 
@@ -31,7 +33,10 @@ const en_syn_info_t SYN_INFO[SY_N] = {
     {"Depth", -100, 100, 0}, {"Sync", 0, EN_NSYNC - 1, 0},
     {"Rate", 0, 100, 20}, {"Shape", 0, EN_NLSHAPE - 1, EN_LS_TRI}, {"Target", 0, EN_NMD - 1, EN_MD_NONE},
     {"Depth", -100, 100, 0}, {"Sync", 0, EN_NSYNC - 1, 0},
-    {"Echo", 0, 100, 45}, {"Plate", 0, 100, 30},
+    {"Time", 0, EN_NDTIME - 1, 3}, {"Feedback", 0, 110, 55}, {"Mix", 0, 100, 35}, {"Tone", 0, 100, 45},
+    {"Wow", 0, 100, 25}, {"Drive", 0, 100, 20},
+    {"Decay", 0, 100, 55}, {"Mix", 0, 100, 25}, {"Pre-dly", 0, 100, 20}, {"Damping", 0, 100, 50},
+    {"Low cut", 0, 100, 30}, {"Width", 0, 100, 70},
 };
 volatile int16_t en_syn[SY_N];
 volatile float en_syn_amp;
@@ -48,12 +53,51 @@ static float sy_lfo_ph[2], sy_lfo_v[2], sy_rand[2], sy_amp_s;
 static uint8_t sy_ready;
 
 void en_syn_set(int p, int v) { post(C_SYN, p, v); }
+/* the delay and the reverb: DUB-1's tape echo and plate, set from the Delay and Reverb pages (while en_gen_on is 0) */
+static float de_dmix, de_rmix, de_dry = 1.0f, de_rlow, de_rwidth = 1.0f, de_pdamp = 0.64f, de_wph1, de_wph2, de_rhp;
+static int de_pre = PRE_N_DUB;
+static void syn_fx(void)
+{
+    const float dm = (float)en_syn[SY_DMIX] * 0.01f, rm = (float)en_syn[SY_RMIX] * 0.01f;
+    /* Mix: up to the middle the send rises to full, past it the dry falls away (two effects: the dry the less of both) */
+    de_dmix = fm_minf(2.0f * dm, 1.0f);
+    de_rmix = fm_minf(2.0f * rm, 1.0f);
+    de_dry = fm_minf(2.0f * (1.0f - dm), 1.0f) * fm_minf(2.0f * (1.0f - rm), 1.0f);
+    de_wow = (float)en_syn[SY_DWOW] * 0.01f;
+    de_drive = (float)en_syn[SY_DDRIVE] * 0.01f;
+    apply(P_ETONE, en_syn[SY_DTONE]);            /* (what enters the tape) */
+    echo_time();
+    pl_decay_t = 0.45f + 0.0051f * (float)en_syn[SY_RDECAY];   /* (to 0.96) */
+    de_pdamp = 0.95f - 0.8f * (float)en_syn[SY_RDAMP] * 0.01f;
+    de_pre = 1 + (int)((float)(PRE_N - 2) * (float)en_syn[SY_RPRE] * 0.01f);   /* (1 .. 100 ms) */
+    de_rlow = (float)en_syn[SY_RLOW] * 0.01f * 0.11f;   /* (a one-pole high-pass: to ~800 Hz) */
+    de_rwidth = (float)en_syn[SY_RWIDTH] * 0.02f;   /* (0 mono, 1 as the plate is, 2 wider) */
+}
+static inline int de_pre_n(void) { return de_pre; }
+static inline float pl_damp_k(void) { return en_gen_on ? 0.64f : de_pdamp; }
+static float de_dtime_beats(void) { return DTIME_BEATS[(unsigned)en_syn[SY_DTIME] < EN_NDTIME ? en_syn[SY_DTIME] : 3]; }
+static inline float de_wow_step(void)             /* a tape sample on: the sway (~0.6 Hz) and the flutter (~6.5 Hz), -1..1 */
+{
+    de_wph1 += 0.6f / TAPE_SR;
+    de_wph2 += 6.5f / TAPE_SR;
+    if (de_wph1 >= 1.0f)
+        de_wph1 -= 1.0f;
+    if (de_wph2 >= 1.0f)
+        de_wph2 -= 1.0f;
+    return 0.8f * sine(de_wph1) + 0.2f * sine(de_wph2);
+}
+static inline float de_drive_in(float x)          /* Drive: the tape pushed, saturating, its level kept */
+{
+    const float g = 1.0f + 5.0f * de_drive;
+    return sat(x * g) * (1.0f + 0.5f * de_drive) / g;
+}
 static void syn_defaults(void)
 {
     int i;
     for (i = 0; i < SY_N; i++)
         en_syn[i] = SYN_INFO[i].def;
     sy_ready = 1;
+    syn_fx();
 }
 static void syn_cmd(int p, int v)
 {
@@ -63,6 +107,7 @@ static void syn_cmd(int p, int v)
         syn_defaults();
     v = (int16_t)v;                              /* (posted as 16 bits: a negative depth back) */
     en_syn[p] = (int16_t)(v < SYN_INFO[p].lo ? SYN_INFO[p].lo : v > SYN_INFO[p].hi ? SYN_INFO[p].hi : v);
+    syn_fx();
 }
 
 static void syn_trig(void)                       /* a chord struck: every envelope from where it is, to its attack */
@@ -196,8 +241,8 @@ static void render_synth(uint32_t n)
         svf_coefs(sy_c, fm_clampf(cut, 30.0f, 16000.0f), k);
         lvl = fm_clampf((float)en_syn[SY_LEVEL] * 0.01f * (1.0f + md[EN_MD_LEVEL]), 0.0f, 1.5f);
         gain = lvl * 0.28f;
-        echo = fm_clampf((float)en_syn[SY_ECHO] * 0.01f + md[EN_MD_ECHO], 0.0f, 1.0f) * 0.9f;
-        plate = (float)en_syn[SY_PLATE] * 0.01f * 0.5f;
+        echo = fm_clampf(de_dmix + md[EN_MD_ECHO], 0.0f, 1.0f) * 0.9f;
+        plate = de_rmix * 0.6f;
         if (amp0 < 1e-5f && amp1 < 1e-5f) {     /* (silent: the oscillators run on, nothing heard) */
             for (i = 0; i < EN_NPAD; i++) {
                 sy_ph[i][0] += dt[i][0] * (float)m;
@@ -238,8 +283,8 @@ static void render_synth(uint32_t n)
             yr = v2;
             yl = sat(yl * am * gain * 2.0f) * 0.5f;
             yr = sat(yr * am * gain * 2.0f) * 0.5f;
-            mixl[jj] += yl;
-            mixr[jj] += yr;
+            mixl[jj] += yl * de_dry;
+            mixr[jj] += yr * de_dry;
             esend[jj] += (yl + yr) * echo;
             rsend[jj] += (yl + yr) * plate;
         }
