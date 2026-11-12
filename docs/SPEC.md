@@ -47,11 +47,12 @@ A chord sequencer for the FM1. You pick a key, play one key per chord, and recor
 * Resonant low pass filter.
 * Tape echo (feedback, hold).
 * Plate reverb.
+* FM pings: kept in the code, off by default, to switch on later.
 
 ## 6. Removed from DUB 1
 
 * DUB 1's always on generative chord walk and random voicing (replaced by Randomise and Evolve above).
-* FM pings, sub bass, kick, shaker, hats, vinyl crackle.
+* Sub bass, kick, shaker, hats, vinyl crackle.
 * The 8 bar arrangement cycle, breaks and fills.
 
 ## 7. Build order
