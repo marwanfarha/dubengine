@@ -13,7 +13,7 @@ case "${1:-}" in
         sh tests/run_tests.sh
         ;;
     emu)
-        sh web/emu/build.sh
+        if command -v emcc >/dev/null 2>&1; then sh web/emu/build.sh; else sh web/emu/build_clang.sh; fi
         echo "Emulator on port 8000 (Codespaces opens it for you). Ctrl+C to stop."
         cd build/emu && python3 -m http.server 8000
         ;;
