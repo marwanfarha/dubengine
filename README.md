@@ -1,23 +1,23 @@
 # dubengine
 
-Custom firmware for the **M VAVE FM1** that turns it into a chord sequencer for dub techno, minimal and microhouse.
+Custom firmware for the **M VAVE FM1**: two tracks of dub chords for dub techno, minimal and microhouse.
 
 **[▶ Play it in your browser](https://marwanfarha.github.io/dubengine/)**, the same code the FM1 runs. Turn your phone sideways for bigger controls.
 
 **[Install on your FM1](https://marwanfarha.github.io/dubengine/install/)** (Chrome or Edge on a computer, FM1 plugged in by USB).
 
-## The idea
+## What it does
 
-Dub techno lives on chord stabs: one shape moved around a key, thrown into a tape echo and a big reverb. dubengine makes the FM1 do exactly that, and play alongside an Elektron Digitakt II.
-
-1. **Pick a key.** Any root note, any mode. Only the keys in your scale light up.
-2. **Play chords with one finger.** Each lit key plays the triad your scale builds on it. Root position, 1st or 2nd inversion.
-3. **Record a pattern.** Turn the metronome on, set the length, and record live. Or stop and enter chords step by step.
-4. **Shape each step.** Lock the chord, voicing, octave and length of any step, like Elektron parameter locks.
-5. **Let it move.** Randomise writes a new pattern in your key. Density, Variation, Length and Offbeat shape it, and Evolve lets it change by itself as it loops.
-6. **Sync it.** It runs on its own tempo, or follows the Digitakt's clock when they're connected.
-
-Every chord comes from its own synth: two oscillators a voice (sine, triangle, saw or square), a wavefolder, a resonant filter, amp and filter envelopes, two more envelopes and two LFOs to modulate almost anything. Then a tape echo and a plate reverb.
+* **Two tracks, A and B.** Each has its own key and scale, pattern, synth, delay and EQ. They share the tempo and one reverb.
+* **One finger chords.** Each lit key plays the triad its track's scale builds on it. Root position, 1st or 2nd inversion.
+* **Patterns up to 64 steps.** Record live or step by step. Each track has its own length, so 16 steps against 12 keeps shifting.
+* **Step locks.** Chord, voicing, octave, length, level, cutoff and delay mix on any step.
+* **A full synth a track.** Two oscillators a voice (sine, triangle, saw, square), wavefolder, resonant filter, four envelopes, two LFOs.
+* **Tape delay a track, one plate reverb** with a send from each track.
+* **Master page.** Levels, meters and an 8 band EQ for each track.
+* **Randomise** the pattern, the sound or the delay, once, by hand. Each roll can be undone.
+* **8 pattern slots and 8 sound slots.**
+* **Kept for later:** a bass voice and an FM ping voice, waiting for their sequencers.
 
 ## Install on your FM1
 
@@ -27,7 +27,7 @@ Every chord comes from its own synth: two oscillators a voice (sine, triangle, s
 4. Wait about two minutes. Do not unplug or close the page. The FM1 restarts by itself.
 5. The installer checks the FM1 now reports dubengine. Done.
 
-Works from the stock firmware or DUB 1. Your saved pattern and sound live in their own flash area.
+Works from the stock firmware or DUB 1.
 
 **Going back:** "Back to the stock firmware" at the bottom of the installer page, or M VAVE's own updater, M UPGRADE.
 
@@ -38,33 +38,40 @@ Works from the stock firmware or DUB 1. Your saved pattern and sound live in the
 ## How to use it
 
 ### Quick start
-1. Press a **lit key**. It plays the chord your scale builds on that note. Dark keys are outside the scale.
+1. Press a **lit key**. It plays the chord the scale builds on that note. Dark keys are outside the scale.
 2. **HOME**: KNOB 1 tempo, KNOB 2 root, KNOB 3 mode, KNOB 4 voicing.
-3. **SEL**: metronome on or off.
-4. **PLAY**, then **REC**: play lit keys to record. **REC** again to stop recording.
-5. **ENV**, **LFO**, **FX**: shape the sound. Press again for the next page.
+3. **HOME again**: the other track. The header shows **A** or **B**. Everything you play and edit goes to that track.
+4. **SEL**: metronome on or off.
+5. **PLAY**, then **REC**: play lit keys to record. **REC** again to stop recording.
+6. **ENV**, **LFO**, **FX**: shape the sound. Press again for the next page.
+7. **GLO**: levels and EQ.
 
 ### Buttons
 
-| Button | Does |
-| --- | --- |
-| PLAY | Start and stop the pattern. |
-| REC | Playing: live recording on or off. Stopped: step edit on or off. |
-| SEL | Metronome on or off. |
-| HOME | Play page. |
-| SEQ | Pattern page. Hold 1.5 s: clear the pattern. Hold again within 5 s: bring it back. |
-| ENV | Osc, Filter, Amp env, Filter env, Env 1, Env 2, in turn. |
-| LFO | LFO 1, LFO 2. |
-| FX | Delay, Reverb, Reverb 2, in turn. |
-| GLO | Hold: save now. Saving also happens by itself after 3 s stopped. |
-| OCT− OCT+ | The keys' octave. In step edit: the next or previous 16 steps. |
+| Button | Tap | Hold |
+| --- | --- | --- |
+| PLAY | Start and stop both tracks. | |
+| REC | Playing: live recording on or off. Stopped: step edit on or off. | |
+| SEL | Metronome on or off. | |
+| HOME | Play page. Again: the other track. | |
+| SEQ | Pattern page. | 1.5 s: clear the pattern. Again within 5 s: bring it back. With a white key: pattern slots. |
+| ENV | Osc, Filter, Amp env, Filter env, Env 1, Env 2, in turn. | With a white key: sound slots. |
+| LFO | LFO 1, LFO 2. | |
+| FX | Delay, Delay 2, Reverb, Reverb 2, in turn. | |
+| GLO | Master, EQ of track A, EQ of track B, in turn. | 1 s: save now. |
+| EDIT | Random page. Again: a new pattern. | 1 s: undo the pattern. |
+| SAVE | Nudge the sound a little. | 1 s: a whole new sound. |
+| ARP | A new delay for this track. | 1 s: undo the last sound or delay change. |
+| OCT− OCT+ | The keys' octave. In step edit: the next or previous 16 steps. | Both for 5 s: update mode. |
+
+Everything saves by itself 3 seconds after you stop.
 
 ### Pages
 
 | Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 | ALGORITHM | PRESETS |
 | --- | --- | --- | --- | --- | --- | --- |
-| Play | Tempo | Root | Mode | Voicing | Step edit: steps 1 to 16, 17 to 32... | |
-| Pattern | Length | Step | Click level | | Step edit: steps 1 to 16, 17 to 32... | |
+| Play | Tempo | Root | Mode | Voicing | | |
+| Pattern | Length | Step | Click level | | | |
 | Osc | Wave | Fold | Detune | Level | | |
 | Filter | Cutoff | Reso | Env amount | Key track | | |
 | Amp env | Attack | Decay | Sustain | Release | | |
@@ -72,43 +79,91 @@ Works from the stock firmware or DUB 1. Your saved pattern and sound live in the
 | Env 1, 2 | Attack | Decay | Sustain | Release | Target | Depth |
 | LFO 1, 2 | Rate | Shape | Target | Depth | Sync | |
 | Delay | Time | Feedback | Mix | Tone | Wow | Drive |
+| Delay 2 | Width | Blur | | | | |
 | Reverb | Decay | Size | Pre delay | Mix | Width | High cut |
 | Reverb 2 | Damping | Diffusion | Mod depth | Mod rate | Low cut | Freeze |
+| Master | Level A | Level B | | | | |
+| EQ | Band | Freq | Gain | Q | | |
+| Random | Density | Variation | Length | Offbeat | | |
 
-* Delay: **SELECT** switches the time between Sync (1/16 to 1 bar) and Free (20 ms to 2 s).
-* Mix: 0 dry only, 50 dry and wet both full, 100 wet only.
-* Targets: pitch, fold, detune, cutoff, reso, level, amp attack, decay and release, delay mix.
+* **Tempo** is shared. **Root, Mode and Voicing** belong to the selected track.
+* **Modes:** Major, Dorian, Phrygian, Lydian, Mixolydian, Minor, Locrian.
+* **Delay:** SELECT switches the time between Sync (1/16 to 1 bar) and Free (20 ms to 2 s). The longest delay is 3 seconds.
+* **Mix:** 0 dry only, 50 dry and wet both full, 100 wet only.
+* **Reverb:** one reverb for both tracks. Mix is each track's own send. The other reverb knobs are shared.
+* **Targets** for envelopes and LFOs: pitch, fold, detune, cutoff, reso, level, amp attack, decay and release, delay mix.
+
+### Master and EQ
+* **Master:** a meter for A, B and the output, in dB, with peak hold. Level 80 is normal, 100 is 4 dB louder. The processor load shows under the meters.
+* **EQ:** 8 bands a track. KNOB 1 picks the band, then set its frequency, gain and Q.
+
+| Band | Type | Controls |
+| --- | --- | --- |
+| 1 | Low cut | Freq (fully left: off) |
+| 2 | Low shelf | Freq, Gain |
+| 3 to 6 | Bell | Freq, Gain, Q |
+| 7 | High shelf | Freq, Gain |
+| 8 | High cut | Freq (fully right: off) |
+
+Gain is ±15 dB. The picture shows the whole curve from 20 Hz to 20 kHz.
 
 ### Step edit
 1. Stop, then press **REC**. The 16 white keys are the steps.
 2. Longer than 16 steps: turn **ALGORITHM** (or press OCT− OCT+) for the next 16. The underline shows which row the keys edit.
 3. Tap a step: add your last chord, or remove it.
-4. Hold a step and turn: KNOB 1 chord, KNOB 2 voicing, KNOB 3 octave, KNOB 4 length.
-5. **REC** again to leave.
+4. Hold a step and turn:
+
+| Control | Lock |
+| --- | --- |
+| KNOB 1 | Chord |
+| KNOB 2 | Voicing |
+| KNOB 3 | Octave |
+| KNOB 4 | Length |
+| ALGORITHM | Level |
+| PRESETS | Cutoff |
+| SELECT | Delay mix |
+
+5. Level, Cutoff and Delay mix start from the page's value. Turn one down past 0 to free it again. A locked step shows a small dot.
+6. **REC** again to leave.
+
+### Slots
+8 pattern slots and 8 sound slots. Either track can use any slot.
+
+1. Hold **SEQ** (patterns) or **ENV** (sounds). The first 8 white keys are the slots. Lit keys have something in them.
+2. **Tap** a key: load that slot into the selected track.
+3. **Hold** a key for a second: save the selected track into that slot.
+
+* A sound slot holds the synth, the delay, the reverb send and the EQ. It leaves the level and the shared reverb alone.
+* Loading can be undone: EDIT held for a pattern, ARP held for a sound.
+* Saving a slot stops the sound for a moment.
+
+### Randomise
+Nothing changes by itself. Each press is one roll, on the selected track.
+
+| Press | Does | Undo |
+| --- | --- | --- |
+| EDIT (on the Random page) | A new pattern in the track's key | EDIT held |
+| SAVE | Nudges every synth knob a little | ARP held |
+| SAVE held | A whole new sound, in ranges that suit dub chords | ARP held |
+| ARP | A new delay and reverb send | ARP held |
+
+* **Density:** how many chords.
+* **Variation:** how many different chords.
+* **Length:** how long chords are held.
+* **Offbeat:** left, on the beat. Right, off the beat.
 
 ### The screen
-* **Header:** the page, the key, play and record, the metronome, the tempo.
-* **Picture:** what the page sets, to scale and live. LFOs across one bar, envelopes on a time axis, the oscillators as heard (detune, fold and modulation included), the filter's curve where the cutoff is now, the delay and reverb in seconds.
+* **Header:** the page, the track, its key, play and record, the metronome, the tempo.
+* **Picture:** what the page sets, to scale and live. LFOs across one bar, envelopes on a time axis, the oscillators as heard, the filter's curve where the cutoff is now, the delay and reverb in seconds, the EQ curve, the meters.
 * **Footer:** the four knobs, each with a bar showing where it sits. The one you turn lights orange and shows large for a moment.
 
-## Where it is now
+## Next
 
 | Feature | Status |
 | --- | --- |
-| Keys play chords in the chosen key, held while pressed | Done |
-| Saves work on both FM1 flash chips | Done |
-| Metronome, pattern length, step value, live recording | Done |
-| Step edit, step locks for chord, voicing, octave, length | Done |
-| Synth: 4 waves, fold, filter, amp and filter envelopes, 2 mod envs, 2 LFOs | Done |
-| Delay page (sync or free time, feedback, mix, tone, wow, drive) and two Reverb pages (decay, size, pre-delay, mix, width, high cut, damping, diffusion, modulation, low cut, freeze) | Done |
-| Black and orange screen, live to scale pictures | Done |
-| Real firmware built and update path tested on every push | Done |
-| Saving the pattern and the sound (by themselves, or GLO held) | Done |
-| Several pattern and sound slots | Next |
 | Digitakt clock sync | Planned |
-| Randomise and Evolve | Planned |
-
-The full plan is in [docs/SPEC.md](docs/SPEC.md), and the controls in [docs/CONTROLS.md](docs/CONTROLS.md).
+| Sequencers for the bass and the FM ping | Planned |
+| Keep the metronome click out of recordings | Planned |
 
 ## Working on it
 
@@ -122,16 +177,16 @@ The full plan is in [docs/SPEC.md](docs/SPEC.md), and the controls in [docs/CONT
 | `./dev.sh build` | The real firmware file: `build/amb.fwsc` |
 | `./dev.sh check` | Build plus tests. Run this before anything goes on the FM1. |
 
-GitHub runs the tests on every push (the **Actions** tab), and updates the browser link above from `main`. Pushing a tag such as `v0.1` builds the firmware and publishes it under **Releases**.
+GitHub runs the tests and builds the real firmware on every push (the **Actions** tab). A push to `main` also republishes the emulator and the installer, with the version in the `VERSION` file.
 
-## Installing on the FM1
+## Installing from the command line
 
-From your PC, with the FM1 connected by USB:
+With the FM1 connected by USB:
 
 ```
 pip install mido python-rtmidi
 python tools/fm1_install.py --info
-python tools/fm1_install.py amb.fwsc
+python tools/fm1_install.py build/amb.fwsc
 ```
 
 ## Safety
@@ -150,16 +205,15 @@ python tools/fm1_install.py amb.fwsc
 
 | Path | What |
 | --- | --- |
-| `firmware/src/dsp/amb.c` | The sound engine: chords, filter, echo, reverb, sequencer |
-| `firmware/src/app/` | The app on the device: controls, screen, storage |
+| `firmware/src/dsp/amb.c` | The sound engine: two tracks, synth, delay, reverb, EQ, sequencer |
+| `firmware/src/app/de_ui.c` | The panel: controls, screen, saving, slots, randomise |
 | `firmware/hal/`, `firmware/loader/` | Hardware and update loader. Don't change. |
 | `host/` | Simulator that runs the app on a computer from a script |
 | `web/emu/` | Browser emulator |
 | `tests/` | Tests and scenario scripts |
-| `docs/` | Spec, controls, and DUB 1's original manual and README |
 
 ## Credits
 
-dubengine is built on **DUB 1** by sbegueria ([source](https://github.com/sbegueria/fm1-dub)), a fork of Charles Vestal's AMB 1. Its platform layer (hardware, USB, update loader, storage, installer) comes from Leo Kuroshita's **Felucca**. The full history is kept in this repo. DUB 1's generative parts are still in the code, switched off, to come back as options.
+dubengine is built on **DUB 1** by sbegueria ([source](https://github.com/sbegueria/fm1-dub)), a fork of Charles Vestal's AMB 1. Its platform layer (hardware, USB, update loader, storage, installer) comes from Leo Kuroshita's **Felucca**. The full history is kept in this repo. DUB 1's tape echo, plate reverb and FM voices live on here; its generative layers were removed.
 
 Licence: GPL 3.0 only, as upstream. See [LICENSING.md](LICENSING.md).

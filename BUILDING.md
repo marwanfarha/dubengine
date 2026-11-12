@@ -1,4 +1,4 @@
-# Building AMB-1
+# Building dubengine
 
 The build makes three files in `build/`:
 
@@ -59,10 +59,7 @@ The build also generates `build/gen/` (the font). It fails if a soft-double rout
 tests/run_tests.sh
 ```
 
-Runs, on the build machine: the maths library against libm; the instrument (`tests/host/amb_test.c`:
-Euclidean patterns, scales and chords, voice leading, the render's levels, drift, evolving loops, freeze); flash
-storage; Felucca's update-path tests against `build/amb.fwsc`; and the whole app in the simulator
-(`tests/scenarios/*.amb`), with its screenshots and audio in `build/scenarios/`.
+Runs, on the build machine: the maths library against libm; the instrument (`tests/host/*_test.c`: the keys' chords, the sequencer, the synth, the effects, the two tracks, the EQ, the locks); flash storage; Felucca's update-path tests against `build/amb.fwsc`; and the whole app in the simulator (`tests/scenarios/*.amb`), with its screenshots and audio in `build/scenarios/`.
 
 `host/build_host.sh` builds the simulator alone; `build/host/amb_host SCRIPT OUTDIR` runs one
 script (the command list is at the top of `host/amb_host.c`).
@@ -81,11 +78,6 @@ mode. If the FM-1 no longer starts but reaches the chip's update mode (4C4A:8057
 `tools/fm1_rescue.sh` puts stock firmware back from a Mac; otherwise recovery needs
 [FM-1-transporter](https://github.com/kurogedelic/FM-1-transporter).
 
-## Publishing a release
+## Publishing
 
-1. `./build.sh --release X.Y` (the identity, FM-1_7XXYYZZ, is what the installer checks).
-2. `tools/publish_pages.sh X.Y`: builds the site (landing page, manual, browser emulator, web
-   installer, firmware) with `tools/make_pages.py` and pushes it to the `gh-pages` branch, which
-   GitHub Pages serves at <https://charlesvestal.github.io/fm1-amb/>. The manual's source is
-   `docs/MANUAL.md` (`tools/manual_html.py` turns it into the page).
-3. `gh release create vX.Y build/amb-X.Y.fwsc` for the command-line download.
+A push to `main` builds the firmware with the version in `VERSION`, tests the update path on that package and publishes the emulator and the web installer with GitHub Pages (`.github/workflows/pages.yml`).

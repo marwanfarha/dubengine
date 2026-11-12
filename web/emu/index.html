@@ -79,8 +79,8 @@ kbd { font: inherit; background: var(--card); border: 1px solid var(--line); pad
 <body>
 <main>
 <header>
-  <h1><span class="tag">DE</span>dubengine</h1>
-  <p>Chord sequencer firmware for the M VAVE FM1. The same code the FM1 runs, in your browser.</p>
+  <h1>dubengine</h1>
+  <p>Two tracks of dub chords for the M VAVE FM1. The same code the FM1 runs, in your browser.</p>
 </header>
 
 <h2 class="sr" id="h-device">The FM1</h2>
@@ -107,59 +107,88 @@ kbd { font: inherit; background: var(--card); border: 1px solid var(--line); pad
 <section class="guide" aria-labelledby="h-guide">
 <h2 id="h-guide">Quick start</h2>
 <ol>
-  <li><b>Switch on</b>, then press a <b>lit key</b>. Each one plays the chord your scale builds on it. Dark keys are outside the scale.</li>
+  <li><b>Switch on</b>, then press a <b>lit key</b>. Each one plays the chord the scale builds on it. Dark keys are outside the scale.</li>
   <li><b>HOME</b>: KNOB 1 tempo, KNOB 2 root, KNOB 3 mode, KNOB 4 voicing.</li>
+  <li><b>HOME again</b>: the other track. The header shows A or B. Each track has its own key, pattern, sound, delay and EQ.</li>
   <li><b>SEL</b>: metronome on or off.</li>
   <li><b>PLAY</b>, then <b>REC</b>: play lit keys to record. REC again to stop recording.</li>
   <li><b>ENV</b>, <b>LFO</b>, <b>FX</b>: shape the sound. Press again for the next page.</li>
+  <li><b>GLO</b>: levels and meters, then each track's EQ.</li>
 </ol>
 
 <h2>Buttons</h2>
-<div class="wrap"><table>
-  <tr><th>Button</th><th>Does</th></tr>
-  <tr><td>PLAY</td><td>Start and stop the pattern.</td></tr>
-  <tr><td>REC</td><td>Playing: live recording on or off. Stopped: step edit on or off.</td></tr>
-  <tr><td>SEL</td><td>Metronome on or off.</td></tr>
-  <tr><td>HOME</td><td>Play page.</td></tr>
-  <tr><td>SEQ</td><td>Pattern page. Hold 1.5 s: clear the pattern. Hold again within 5 s: bring it back.</td></tr>
-  <tr><td>ENV</td><td>Osc, Filter, Amp env, Filter env, Env 1, Env 2, in turn.</td></tr>
-  <tr><td>LFO</td><td>LFO 1, LFO 2.</td></tr>
-  <tr><td>FX</td><td>Delay, Reverb, Reverb 2, in turn.</td></tr>
-  <tr><td>GLO</td><td>Hold: save now. Saving also happens by itself after 3 s stopped.</td></tr>
-  <tr><td>OCT− OCT+</td><td>The keys' octave. In step edit: the page of 16 steps.</td></tr>
-</table></div>
+<table>
+  <tr><th>Button</th><th>Tap</th><th>Hold</th></tr>
+  <tr><td>PLAY</td><td>Start and stop both tracks.</td><td></td></tr>
+  <tr><td>REC</td><td>Playing: record on or off. Stopped: step edit on or off.</td><td></td></tr>
+  <tr><td>SEL</td><td>Metronome on or off.</td><td></td></tr>
+  <tr><td>HOME</td><td>Play page. Again: the other track.</td><td></td></tr>
+  <tr><td>SEQ</td><td>Pattern page.</td><td>1.5 s: clear the pattern, again to bring it back. With a white key: pattern slots.</td></tr>
+  <tr><td>ENV</td><td>Osc, Filter, Amp env, Filter env, Env 1, Env 2.</td><td>With a white key: sound slots.</td></tr>
+  <tr><td>LFO</td><td>LFO 1, LFO 2.</td><td></td></tr>
+  <tr><td>FX</td><td>Delay, Delay 2, Reverb, Reverb 2.</td><td></td></tr>
+  <tr><td>GLO</td><td>Master, EQ of track A, EQ of track B.</td><td>1 s: save now.</td></tr>
+  <tr><td>EDIT</td><td>Random page. Again: a new pattern.</td><td>1 s: undo the pattern.</td></tr>
+  <tr><td>SAVE</td><td>Nudge the sound.</td><td>1 s: a whole new sound.</td></tr>
+  <tr><td>ARP</td><td>A new delay for this track.</td><td>1 s: undo the last sound or delay change.</td></tr>
+  <tr><td>OCT− OCT+</td><td>The keys' octave. In step edit: the next 16 steps.</td><td></td></tr>
+</table>
+<p class="note">Everything saves by itself 3 seconds after you stop.</p>
 
 <h2>Pages</h2>
-<div class="wrap"><table>
-  <tr><th>Page</th><th>Knob 1</th><th>Knob 2</th><th>Knob 3</th><th>Knob 4</th><th>Algorithm</th><th>Presets</th></tr>
+<table>
+  <tr><th>Page</th><th>KNOB 1</th><th>KNOB 2</th><th>KNOB 3</th><th>KNOB 4</th><th>ALGORITHM</th><th>PRESETS</th></tr>
   <tr><td>Play</td><td>Tempo</td><td>Root</td><td>Mode</td><td>Voicing</td><td></td><td></td></tr>
   <tr><td>Pattern</td><td>Length</td><td>Step</td><td>Click level</td><td></td><td></td><td></td></tr>
   <tr><td>Osc</td><td>Wave</td><td>Fold</td><td>Detune</td><td>Level</td><td></td><td></td></tr>
   <tr><td>Filter</td><td>Cutoff</td><td>Reso</td><td>Env amount</td><td>Key track</td><td></td><td></td></tr>
-  <tr><td>Amp env</td><td>Attack</td><td>Decay</td><td>Sustain</td><td>Release</td><td></td><td></td></tr>
-  <tr><td>Filter env</td><td>Attack</td><td>Decay</td><td>Sustain</td><td>Release</td><td></td><td></td></tr>
+  <tr><td>Amp env, Filter env</td><td>Attack</td><td>Decay</td><td>Sustain</td><td>Release</td><td></td><td></td></tr>
   <tr><td>Env 1, 2</td><td>Attack</td><td>Decay</td><td>Sustain</td><td>Release</td><td>Target</td><td>Depth</td></tr>
   <tr><td>LFO 1, 2</td><td>Rate</td><td>Shape</td><td>Target</td><td>Depth</td><td>Sync</td><td></td></tr>
   <tr><td>Delay</td><td>Time</td><td>Feedback</td><td>Mix</td><td>Tone</td><td>Wow</td><td>Drive</td></tr>
+  <tr><td>Delay 2</td><td>Width</td><td>Blur</td><td></td><td></td><td></td><td></td></tr>
   <tr><td>Reverb</td><td>Decay</td><td>Size</td><td>Pre delay</td><td>Mix</td><td>Width</td><td>High cut</td></tr>
   <tr><td>Reverb 2</td><td>Damping</td><td>Diffusion</td><td>Mod depth</td><td>Mod rate</td><td>Low cut</td><td>Freeze</td></tr>
-</table></div>
-<p>On the Delay page, <b>SELECT</b> switches the time between Sync (1/16 to 1 bar) and Free (20 ms to 2 s).
-  Mix: 0 dry only, 50 dry and wet both full, 100 wet only.</p>
+  <tr><td>Master</td><td>Level A</td><td>Level B</td><td></td><td></td><td></td><td></td></tr>
+  <tr><td>EQ</td><td>Band</td><td>Freq</td><td>Gain</td><td>Q</td><td></td><td></td></tr>
+  <tr><td>Random</td><td>Density</td><td>Variation</td><td>Length</td><td>Offbeat</td><td></td><td></td></tr>
+</table>
+<ul>
+  <li>Tempo is shared. Root, Mode and Voicing belong to the selected track.</li>
+  <li>Delay: SELECT switches the time between Sync and Free.</li>
+  <li>Reverb: one for both tracks. Mix is each track's own send.</li>
+  <li>EQ: 8 bands a track. Low cut, low shelf, four bells, high shelf, high cut.</li>
+</ul>
 
 <h2>Step edit</h2>
-<ul>
+<ol>
   <li>Stop, then press <b>REC</b>. The 16 white keys are the steps.</li>
+  <li>Longer than 16 steps: turn <b>ALGORITHM</b> for the next 16.</li>
   <li>Tap a step: add your last chord, or remove it.</li>
-  <li>Hold a step and turn: KNOB 1 chord, KNOB 2 voicing, KNOB 3 octave, KNOB 4 length.</li>
+  <li>Hold a step and turn: KNOB 1 chord, KNOB 2 voicing, KNOB 3 octave, KNOB 4 length, ALGORITHM level, PRESETS cutoff, SELECT delay mix.</li>
   <li><b>REC</b> again to leave.</li>
+</ol>
+
+<h2>Slots</h2>
+<ol>
+  <li>Hold <b>SEQ</b> (patterns) or <b>ENV</b> (sounds). The first 8 white keys are the slots. Lit keys have something in them.</li>
+  <li>Tap a key: load that slot into the selected track.</li>
+  <li>Hold a key for a second: save the selected track into that slot.</li>
+</ol>
+
+<h2>Randomise</h2>
+<ul>
+  <li><b>EDIT</b> on the Random page: a new pattern in the track's key. EDIT held: undo.</li>
+  <li><b>SAVE</b>: nudge the sound. SAVE held: a whole new sound.</li>
+  <li><b>ARP</b>: a new delay. ARP held: undo the last sound or delay change.</li>
+  <li>Nothing changes by itself. Each press is one roll.</li>
 </ul>
 
 <h2>The screen</h2>
 <ul>
-  <li>Header: the page, the key, play and record, the metronome, the tempo.</li>
-  <li>The picture shows what the page sets, to scale and live: the LFO across one bar, envelopes on a time axis, the oscillators with detune and fold as heard, the filter's curve where the cutoff is now, the delay and reverb in seconds.</li>
-  <li>Footer: the four knobs. A bar shows where each sits in its range. The knob you turn lights orange, and its value shows large for a moment.</li>
+  <li>Header: the page, the track, its key, play and record, the metronome, the tempo.</li>
+  <li>The picture shows what the page sets, to scale and live.</li>
+  <li>Footer: the four knobs. A bar shows where each sits in its range. The knob you turn lights orange.</li>
 </ul>
 
 <h2>Keyboard</h2>
@@ -301,14 +330,16 @@ function hit(c, cls, attrs, parent = controls) {
 }
 // what each control does (the Buttons list below says the same); a page button's light is its page, PLAY's
 // playing, REC's dub hold: those are toggle buttons (aria-pressed), the others plain ones
-const TIP = { FX: "Delay, Reverb, Reverb 2, in turn.", SEL: "Metronome on or off.",
-  ENV: "Osc, Filter, Amp env, Filter env, Env 1, Env 2, in turn.", LFO: "LFO 1, LFO 2.", EDIT: "Not used yet.",
-  GLO: "Hold: save the pattern and the sound now.", HOME: "The Play page: tempo, root, mode, voicing.", SAVE: "Not used yet.",
-  ARP: "Not used yet.", SEQ: "The Pattern page: length, step, click level. Hold: clear the pattern; hold again within 5 s: back.",
-  PLAY: "Start and stop the pattern.", REC: "Playing: live recording on or off. Stopped: step edit on or off.",
+const TIP = { FX: "Delay, Delay 2, Reverb, Reverb 2, in turn.", SEL: "Metronome on or off.",
+  ENV: "Osc, Filter, Amp env, Filter env, Env 1, Env 2, in turn. Held with a white key: sound slots.", LFO: "LFO 1, LFO 2.",
+  EDIT: "The Random page. Again: a new pattern. Hold: undo the pattern.",
+  GLO: "Master, EQ of track A, EQ of track B, in turn. Hold: save now.", HOME: "The Play page: tempo, root, mode, voicing. Again: the other track.",
+  SAVE: "Nudge the sound. Hold: a whole new sound.", ARP: "A new delay for this track. Hold: undo the last sound or delay change.",
+  SEQ: "The Pattern page. Hold: clear the pattern, again to bring it back. Held with a white key: pattern slots.",
+  PLAY: "Start and stop both tracks.", REC: "Playing: live recording on or off. Stopped: step edit on or off.",
   "OCT-": "The keys an octave down. In step edit: the step page before.", "OCT+": "The keys an octave up. In step edit: the next step page.",
-  SELECT: "On the Delay page: Sync or Free time.", ALGORITHM: "The page's extra control (shown on the screen).",
-  PRESETS: "The page's second extra control (shown on the screen).", KNOB1: "The first value on the screen.",
+  SELECT: "On the Delay page: Sync or Free time. A step held: its delay mix.", ALGORITHM: "The page's extra control. Step edit: the next 16 steps. A step held: its level.",
+  PRESETS: "The page's second extra control. A step held: its cutoff.", KNOB1: "The first value on the screen.",
   KNOB2: "The second value on the screen.", KNOB3: "The third value on the screen.", KNOB4: "The fourth value on the screen." };
 const LIGHTS = new Set(["FX", "SEL", "ENV", "LFO", "GLO", "HOME", "ARP", "SEQ", "PLAY", "REC"]);
 const spokenLabel = (l) => l.replace("OCT-", "OCT minus").replace("OCT+", "OCT plus").replace(/^KNOB(\d)$/, "KNOB $1");
