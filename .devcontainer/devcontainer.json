@@ -1,0 +1,25 @@
+{
+  "name": "dubengine (FM1 firmware)",
+  "image": "mcr.microsoft.com/devcontainers/python:3.12-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": { "version": "lts" }
+  },
+  "hostRequirements": { "cpus": 4 },
+  "postCreateCommand": "sh .devcontainer/setup.sh",
+  "containerEnv": {
+    "JIELI_TOOLCHAIN": "/home/vscode/.jieli/toolchain",
+    "AC79_SDK": "/home/vscode/fw-AC79_AIoT_SDK"
+  },
+  "forwardPorts": [8000],
+  "portsAttributes": {
+    "8000": { "label": "FM1 emulator", "onAutoForward": "openBrowser" }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode.cpptools",
+        "ms-python.python"
+      ]
+    }
+  }
+}

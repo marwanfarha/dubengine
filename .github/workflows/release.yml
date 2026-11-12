@@ -1,0 +1,18 @@
+# Push a tag like v0.1 to build the real firmware (.fwsc) on GitHub and publish it as a release.
+# Uses the shared FM1 build workflow (github.com/zvenson/fm1-build): JieLi's Linux toolchain,
+# the AC79 SDK, and a signed build attestation the FM1 Firmware Hub can check.
+name: release
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  build:
+    uses: zvenson/fm1-build/.github/workflows/build.yml@v1
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    with:
+      build: ./build.sh --release "${GITHUB_REF_NAME#v}"
+      packages: build/*.fwsc
