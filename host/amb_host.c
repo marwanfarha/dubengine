@@ -23,7 +23,7 @@
  *   splash N | splashrun         the launch screen's frame N; the launch screen played out, then the UI again
  *   echo TEXT
  * expect: track (0 A, 1 B), tempo, root, mode, voicing, seqon, seqplaying, seqrec, seqlen, seqdiv, metro, seqdegN,
- * steplenN, synN (the selected track's; a "b" before the name: track B's, a "a": track A's, e.g. bseqon), litkeyN,
+ * steplenN, synN, mxN, lockW_N, page (the selected track's; a "b" before the name: track B's, a "a": track A's, e.g. bseqon), litkeyN,
  * litbtnNAME, padlvl, writes, blits, peak_db_max, peak_db_min
  */
 #define EN_HOST 1
@@ -373,7 +373,8 @@ static int expect(const char *what, const char *val)
 {
     int got = 0, i, t = en_sel;
     if ((what[0] == 'a' || what[0] == 'b') && (!strncmp(what + 1, "seq", 3) || !strncmp(what + 1, "syn", 3) ||
-                                               !strncmp(what + 1, "step", 4) || !strcmp(what + 1, "root") ||
+                                               !strncmp(what + 1, "step", 4) || !strcmp(what + 1, "root") || !strncmp(what + 1, "mx", 2) ||
+                                               !strncmp(what + 1, "lock", 4) ||
                                                !strcmp(what + 1, "mode") || !strcmp(what + 1, "voicing"))) {
         t = what[0] == 'b';
         what++;
@@ -405,6 +406,13 @@ static int expect(const char *what, const char *val)
         got = en_trk[t].seq[atoi(what + 6) % EN_SEQ_MAX].on ? en_trk[t].seq[atoi(what + 6) % EN_SEQ_MAX].deg : -1;
     else if (!strncmp(what, "syn", 3) && what[3] >= '0' && what[3] <= '9')   /* synN: the synth's parameter N (SY_*) */
         got = en_trk[t].syn[atoi(what + 3) % SY_N];
+    else if (!strcmp(what, "page"))             /* the panel's page (de_ui.c DE_*) */
+        got = de.page;
+    else if (!strncmp(what, "mx", 2) && what[2] >= '0' && what[2] <= '9')   /* mxN: the mix's parameter N (MX_*) */
+        got = en_trk[t].mx[atoi(what + 2) % MX_N];
+    else if (!strncmp(what, "lock", 4) && what[4] >= '0' && what[4] < '0' + EN_NLK && what[5] == '_')   /* lockW_N: step N's
+                                                  * lock W (EN_LK_*): its value, -1 none */
+        got = (int)en_trk[t].seq[atoi(what + 6) % EN_SEQ_MAX].lock[what[4] - '0'] - 1;
     else if (!strncmp(what, "steplen", 7))      /* steplenN: step N's length */
         got = en_trk[t].seq[atoi(what + 7) % EN_SEQ_MAX].len;
     else if (!strncmp(what, "litkey", 6))       /* litkeyN: key N (0..26) lit */

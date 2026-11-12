@@ -42,7 +42,7 @@ volatile uint32_t en_prof[EN_PROF_N];
 
 /* ------------------------------------------------------------ commands --- */
 /* a command: its kind and the track it is for (the one selected as it was posted), a byte, 16 bits */
-enum { C_SET, C_POOL, C_PANIC, C_KEY, C_VOICING, C_SEQ, C_STEP, C_SYN, C_BASS, C_PING };
+enum { C_SET, C_POOL, C_PANIC, C_KEY, C_VOICING, C_SEQ, C_STEP, C_SYN, C_BASS, C_PING, C_MIX, C_LOCK };
 #define QN 512u
 static uint32_t q[QN];
 static volatile uint32_t q_w, q_r, q_drop;
@@ -78,6 +78,11 @@ EN_COLD void en_seq_step(int i, const en_step_t *st)      /* packed: on, degree 
     post(C_STEP, i & 0x3F, (st->on != 0) | (st->deg & 7) << 1 | (st->oct & 3) << 4 | (st->voi & 3) << 6 | (len - 1) << 8);
 }
 EN_COLD void en_syn_set(int p, int v) { post(C_SYN, p, v); }
+EN_COLD void en_mix_set(int p, int v) { post(C_MIX, p, v); }
+EN_COLD void en_seq_lock(int i, int which, int v)
+{
+    post(C_LOCK, i & 0x3F, (which & 3) << 8 | (v < 0 ? 0 : v > 100 ? 101 : v + 1));
+}
 EN_COLD void en_bass_note(int note, int vel, int ms)   /* (the length in 20 ms: up to 10 s) */
 {
     const int u = ms < 20 ? 1 : ms > 10000 ? 500 : ms / 20;
@@ -417,6 +422,13 @@ typedef struct {
     } env[NENV];
     float ph[EN_NPAD][2], s[4], c[4], lfo_ph[2], rnd[2], amp_s;
     float dmix, rmix, dry, wow, drive;
+    uint8_t lk[EN_NLK];                          /* the sounding step's locks (0 none, else the value + 1) */
+    float gain, gain_s;                          /* the level, and as heard (eased) */
+    struct {
+        float b0, b1, b2, a1, a2;
+        uint8_t on;
+    } eq[EN_NEQ];
+    float eqz[EN_NEQ][4];                        /* (the bands' states: left, right) */
     int tape_w, tape_ph, eap_i[5];
     float tape_acc, tape_lp, tape_hp, p1, c1, p3, c3, len, len_t, fb, hpc, lpc, in_lp, in_hp, in_c, blur, wide, wph1,
           wph2, dk, dd;
@@ -425,7 +437,7 @@ static tk_t tk[NT];
 static int16_t tape[NT][TAPE_N] EN_POOL;
 static int16_t eap[NT][EAP_FB];                  /* (int16 at 1/8000: +-4; in the RAM: the pool is the tapes' and the plate's) */
 static float pan_l[EN_NPAD], pan_r[EN_NPAD];     /* a chord's voices across the field */
-static float mixl[BLK], mixr[BLK], rsend[BLK], tl[BLK], tr[BLK], es[BLK];
+static float mixl[BLK], mixr[BLK], rsend[BLK], tl[BLK], tr[BLK], es[BLK], rs[BLK];
 static uint32_t sq_t;                            /* samples since the start */
 static float sq_beat_left;                       /* samples to the next beat */
 static uint32_t sq_beat;
@@ -731,7 +743,7 @@ static inline float sy_osc(int wave, float ph, float dt)
     default: return blep_saw(ph, dt);
     }
 }
-static void render_synth(int t, uint32_t n)      /* into tl, tr (the dry), es (the echo's send), rsend (the plate's) */
+static void render_synth(int t, uint32_t n)      /* into tl, tr (the dry), es (the echo's send), rs (the plate's) */
 {
     volatile en_trk_t *E = &en_trk[t];
     tk_t *T = &tk[t];
@@ -774,7 +786,7 @@ static void render_synth(int t, uint32_t n)      /* into tl, tr (the dry), es (t
                                                   * eighth of a turn at their peak, nearly straight; at 100 past two folds) */
         /* the filter: Cutoff 40 Hz .. 16 kHz, the envelope +-6 octaves, Key track from the chord's middle (C4), the
          * target's +-5 octaves */
-        cut = 40.0f * fm_exp2f((float)E->syn[SY_CUT] * 0.0864f + 6.0f * fe * (float)E->syn[SY_FENV] * 0.01f +
+        cut = 40.0f * fm_exp2f((float)(T->lk[EN_LK_CUTOFF] ? T->lk[EN_LK_CUTOFF] - 1 : E->syn[SY_CUT]) * 0.0864f + 6.0f * fe * (float)E->syn[SY_FENV] * 0.01f +
                                (float)E->syn[SY_KTRK] * 0.01f * ((float)T->notes[1] - 60.0f) * (1.0f / 12.0f) +
                                5.0f * md[EN_MD_CUTOFF]);
         k = 2.0f - 1.9f * fm_clampf((float)E->syn[SY_RESO] * 0.01f + md[EN_MD_RESO], 0.0f, 1.0f);
@@ -786,9 +798,9 @@ static void render_synth(int t, uint32_t n)      /* into tl, tr (the dry), es (t
             E->fold_now = fold;
             E->det_now = det * (1.0f / 0.0145f);
         }
-        lvl = fm_clampf((float)E->syn[SY_LEVEL] * 0.01f * (1.0f + md[EN_MD_LEVEL]), 0.0f, 1.5f);
+        lvl = fm_clampf((float)(T->lk[EN_LK_LEVEL] ? T->lk[EN_LK_LEVEL] - 1 : E->syn[SY_LEVEL]) * 0.01f * (1.0f + md[EN_MD_LEVEL]), 0.0f, 1.5f);
         gain = lvl * 0.28f;
-        echo = fm_clampf(T->dmix + md[EN_MD_ECHO], 0.0f, 1.0f) * 0.9f * 0.3025f;   /* (DUB-1's Echo at 55: what the tape takes) */
+        echo = fm_clampf((T->lk[EN_LK_SEND] ? fm_minf(0.02f * (float)(T->lk[EN_LK_SEND] - 1), 1.0f) : T->dmix) + md[EN_MD_ECHO], 0.0f, 1.0f) * 0.9f * 0.3025f;   /* (DUB-1's Echo at 55: what the tape takes) */
         plate = T->rmix * 0.6f;
         if (amp0 < 1e-5f && amp1 < 1e-5f) {     /* (silent: the oscillators run on, nothing heard) */
             for (i = 0; i < EN_NPAD; i++) {
@@ -833,7 +845,7 @@ static void render_synth(int t, uint32_t n)      /* into tl, tr (the dry), es (t
             tl[jj] += yl * T->dry;
             tr[jj] += yr * T->dry;
             es[jj] += (yl + yr) * echo;
-            rsend[jj] += (yl + yr) * plate;
+            rs[jj] += (yl + yr) * plate;
         }
         T->amp_s = amp1;
     }
@@ -842,6 +854,115 @@ static void render_synth(int t, uint32_t n)      /* into tl, tr (the dry), es (t
     T->s[2] = fm_flush(s2);
     T->s[3] = fm_flush(s3);
     E->syn_amp = T->amp_s;
+}
+
+/* ------------------------------------------------ the level and the EQ --- */
+/* A track's eight bands, biquads (the Audio EQ Cookbook's, R. Bristow-Johnson): a band flat or off is not run. */
+EN_COLD int en_mix_lo(int p) { return p >= MX_EQ && (p - MX_EQ) % EQ_NF == EQ_GAIN ? -15 : 0; }
+EN_COLD int en_mix_hi(int p) { return p >= MX_EQ && (p - MX_EQ) % EQ_NF == EQ_GAIN ? 15 : 100; }
+EN_COLD int en_mix_def(int p)
+{
+    static const uint8_t F[EN_NEQ] = {0, 23, 37, 51, 67, 80, 87, 100};   /* off, 98 Hz, 258, 678, 2 k, 5 k, 8.2 k, off */
+    if (p == MX_LEVEL)
+        return 80;
+    p -= MX_EQ;
+    return p % EQ_NF == EQ_FREQ ? F[p / EQ_NF % EN_NEQ] : p % EQ_NF == EQ_Q ? 35 : 0;
+}
+EN_COLD float en_eq_hz(int v) { return 20.0f * fm_exp2f((float)v * 0.0996578f); }   /* 20 Hz .. 20 kHz */
+EN_COLD static void eq_coefs(int t, int b)
+{
+    volatile en_trk_t *E = &en_trk[t];
+    const int fv = E->mx[MX_EQ + b * EQ_NF + EQ_FREQ], gv = E->mx[MX_EQ + b * EQ_NF + EQ_GAIN], qv = E->mx[MX_EQ + b * EQ_NF + EQ_Q];
+    const float w = 2.0f * FM_PI * fm_clampf(en_eq_hz(fv), 20.0f, 20000.0f) * (1.0f / EN_SR), cs = fm_cosf(w), sn = fm_sinf(w),
+                A = fm_exp2f((float)gv * 0.0830482f);   /* 10^(dB / 40) */
+    float b0, b1, b2, a0, a1, a2;
+    int on;
+    if (b == EN_EQ_LOCUT || b == EN_EQ_HICUT) {
+        const float al = sn * 0.70710678f, k = b == EN_EQ_LOCUT ? 1.0f + cs : 1.0f - cs;
+        on = b == EN_EQ_LOCUT ? fv > 0 : fv < 100;
+        b0 = b2 = 0.5f * k, b1 = b == EN_EQ_LOCUT ? -k : k;
+        a0 = 1.0f + al, a1 = -2.0f * cs, a2 = 1.0f - al;
+    } else if (b == EN_EQ_LOSHELF || b == EN_EQ_HISHELF) {
+        const float sq = 2.0f * fm_sqrtf(A) * sn * 0.70710678f, s = b == EN_EQ_LOSHELF ? 1.0f : -1.0f;
+        on = gv != 0;
+        b0 = A * ((A + 1.0f) - s * (A - 1.0f) * cs + sq);
+        b1 = s * 2.0f * A * ((A - 1.0f) - s * (A + 1.0f) * cs);
+        b2 = A * ((A + 1.0f) - s * (A - 1.0f) * cs - sq);
+        a0 = (A + 1.0f) + s * (A - 1.0f) * cs + sq;
+        a1 = -s * 2.0f * ((A - 1.0f) + s * (A + 1.0f) * cs);
+        a2 = (A + 1.0f) + s * (A - 1.0f) * cs - sq;
+    } else {
+        const float al = sn / (2.0f * 0.35f * fm_exp2f((float)qv * 0.045f));   /* Q 0.35 .. 8 */
+        on = gv != 0;
+        b0 = 1.0f + al * A, b1 = -2.0f * cs, b2 = 1.0f - al * A;
+        a0 = 1.0f + al / A, a1 = -2.0f * cs, a2 = 1.0f - al / A;
+    }
+    a0 = 1.0f / a0;
+    tk[t].eq[b].b0 = b0 * a0, tk[t].eq[b].b1 = b1 * a0, tk[t].eq[b].b2 = b2 * a0;
+    tk[t].eq[b].a1 = a1 * a0, tk[t].eq[b].a2 = a2 * a0;
+    if (!on)
+        tk[t].eqz[b][0] = tk[t].eqz[b][1] = tk[t].eqz[b][2] = tk[t].eqz[b][3] = 0.0f;
+    tk[t].eq[b].on = (uint8_t)on;
+}
+EN_COLD float en_eq_db(float hz)                 /* (the bands' analogue curves: the picture's, steady at any frequency) */
+{
+    volatile en_trk_t *E = &en_trk[en_sel < NT ? en_sel : 0];
+    float db = 0.0f;
+    int b;
+    for (b = 0; b < EN_NEQ; b++) {
+        const int fv = E->mx[MX_EQ + b * EQ_NF + EQ_FREQ], gv = E->mx[MX_EQ + b * EQ_NF + EQ_GAIN], qv = E->mx[MX_EQ + b * EQ_NF + EQ_Q];
+        const float x = fm_maxf(hz, 1.0f) / en_eq_hz(fv), x2 = x * x, A = fm_exp2f((float)gv * 0.0830482f);
+        float num, den;
+        if (b == EN_EQ_LOCUT || b == EN_EQ_HICUT) {
+            if (b == EN_EQ_LOCUT ? fv <= 0 : fv >= 100)
+                continue;
+            num = b == EN_EQ_LOCUT ? x2 * x2 : 1.0f, den = 1.0f + x2 * x2;
+        } else if (!gv) {
+            continue;
+        } else if (b == EN_EQ_LOSHELF || b == EN_EQ_HISHELF) {
+            const float m = 2.0f * A * x2, p = (A - x2) * (A - x2) + m, q = (1.0f - A * x2) * (1.0f - A * x2) + m;
+            num = A * A * (b == EN_EQ_LOSHELF ? p : q), den = b == EN_EQ_LOSHELF ? q : p;
+        } else {
+            const float Q = 0.35f * fm_exp2f((float)qv * 0.045f), d = (1.0f - x2) * (1.0f - x2);
+            num = d + (A * x / Q) * (A * x / Q), den = d + (x / (A * Q)) * (x / (A * Q));
+        }
+        db += 3.0103f * fm_log2f(fm_maxf(num, 1e-12f) / fm_maxf(den, 1e-12f));
+    }
+    return db;
+}
+EN_COLD static void mix_cmd(int t, int p, int v)
+{
+    if ((unsigned)p >= MX_N)
+        return;
+    v = (int16_t)v;
+    v = v < en_mix_lo(p) ? en_mix_lo(p) : v > en_mix_hi(p) ? en_mix_hi(p) : v;
+    en_trk[t].mx[p] = (int16_t)v;
+    if (p == MX_LEVEL)
+        tk[t].gain = (float)(v * v) * (1.0f / 6400.0f);   /* (80: as it is; 100: +3.9 dB) */
+    else
+        eq_coefs(t, (p - MX_EQ) / EQ_NF);
+}
+static void eq_run(tk_t *T, uint32_t n)          /* the track's bands over tl, tr */
+{
+    uint32_t j;
+    int b;
+    for (b = 0; b < EN_NEQ; b++) {
+        const float b0 = T->eq[b].b0, b1 = T->eq[b].b1, b2 = T->eq[b].b2, a1 = T->eq[b].a1, a2 = T->eq[b].a2;
+        float z0 = T->eqz[b][0], z1 = T->eqz[b][1], z2 = T->eqz[b][2], z3 = T->eqz[b][3];
+        if (!T->eq[b].on)
+            continue;
+        for (j = 0; j < n; j++) {
+            float x = tl[j], y = b0 * x + z0;
+            z0 = b1 * x - a1 * y + z1;
+            z1 = b2 * x - a2 * y;
+            tl[j] = y;
+            x = tr[j], y = b0 * x + z2;
+            z2 = b1 * x - a1 * y + z3;
+            z3 = b2 * x - a2 * y;
+            tr[j] = y;
+        }
+        T->eqz[b][0] = fm_flush(z0), T->eqz[b][1] = fm_flush(z1), T->eqz[b][2] = fm_flush(z2), T->eqz[b][3] = fm_flush(z3);
+    }
 }
 
 /* ------------------------------------------------- the keys, the pattern --- */
@@ -928,6 +1049,7 @@ EN_COLD static void seq_write(int t, int at, int len, const en_step_t *st)   /* 
     E->seq[at].oct = st->oct;
     E->seq[at].voi = st->voi;
     E->seq[at].len = (uint8_t)len;
+    E->seq[at].lock[0] = E->seq[at].lock[1] = E->seq[at].lock[2] = 0;
 }
 EN_COLD static void key_chord(int t, int note, int on)
 {
@@ -951,6 +1073,7 @@ EN_COLD static void key_chord(int t, int note, int on)
     if (!chord_voice(t, note, E->voicing))
         return;
     T->key_held = 1;
+    T->lk[0] = T->lk[1] = T->lk[2] = 0;          /* (a key: no step's locks) */
     T->sq_gate = 0.0f;                           /* (a key over the pattern's chord: the key's now) */
     E->key_note = (uint8_t)note;
     if (en_seq_playing && en_seq_rec) {          /* recording: on its nearest step, as long as held */
@@ -980,8 +1103,10 @@ EN_COLD static void seq_fire(int t)              /* a step begins: its chord, if
     {
         en_step_t s;
         s.deg = p->deg, s.oct = p->oct, s.voi = p->voi, s.len = p->len;
-        if (chord_voice(t, seq_note(t, &s), s.voi == EN_VO_KEY ? E->voicing : s.voi))
+        if (chord_voice(t, seq_note(t, &s), s.voi == EN_VO_KEY ? E->voicing : s.voi)) {
             T->sq_gate = (float)s.len * step_samples(t) * 0.92f;
+            T->lk[0] = p->lock[0], T->lk[1] = p->lock[1], T->lk[2] = p->lock[2];   /* (its locks, while it sounds) */
+        }
     }
 }
 EN_COLD static void seq_cmd(int t, int op, int v)
@@ -1024,6 +1149,7 @@ EN_COLD static void seq_cmd(int t, int op, int v)
         for (i = 0; i < EN_SEQ_MAX; i++) {
             T->kept[i].on = E->seq[i].on, T->kept[i].deg = E->seq[i].deg, T->kept[i].oct = E->seq[i].oct;
             T->kept[i].voi = E->seq[i].voi, T->kept[i].len = E->seq[i].len;
+            T->kept[i].lock[0] = E->seq[i].lock[0], T->kept[i].lock[1] = E->seq[i].lock[1], T->kept[i].lock[2] = E->seq[i].lock[2];
             E->seq[i].on = 0;
         }
         T->rec_step = -1;
@@ -1032,6 +1158,7 @@ EN_COLD static void seq_cmd(int t, int op, int v)
         for (i = 0; i < EN_SEQ_MAX; i++) {
             E->seq[i].on = T->kept[i].on, E->seq[i].deg = T->kept[i].deg, E->seq[i].oct = T->kept[i].oct;
             E->seq[i].voi = T->kept[i].voi, E->seq[i].len = T->kept[i].len;
+            E->seq[i].lock[0] = T->kept[i].lock[0], E->seq[i].lock[1] = T->kept[i].lock[1], E->seq[i].lock[2] = T->kept[i].lock[2];
         }
         break;
     case SQ_METRO:
@@ -1192,24 +1319,34 @@ static void render_chunk(int32_t *out, uint32_t n, float gain)
             tk_t *T = &tk[t];
             float dk = T->dk, dd = T->dd;
             for (j = 0; j < n; j++)
-                tl[j] = tr[j] = es[j] = 0.0f;
+                tl[j] = tr[j] = es[j] = rs[j] = 0.0f;
             render_synth(t, n);
             for (j = 0; j < n; j++) {
-                float el, er, ge, a;
+                float el, er, ge;
                 echo_step(T, tape[t], eap[t], es[j], &el, &er);
                 dd += (dk - dd) * 0.05f;         /* (a strike: the repeats down by up to 6 dB, back over ~150 ms) */
                 dk *= 0.99985f;
                 ge = 1.2f * (1.0f - 0.5f * fm_minf(dd, 1.0f));
                 el *= ge;
                 er *= ge;
-                rsend[j] += (el + er) * 0.12f;    /* (a little of the repeats into the plate) */
+                rs[j] += (el + er) * 0.12f;      /* (a little of the repeats into the plate) */
                 tl[j] += el;
                 tr[j] += er;
-                a = fm_maxf(fm_fabsf(tl[j]), fm_fabsf(tr[j]));
-                if (a > pk[t])
-                    pk[t] = a;
-                mixl[j] += tl[j];
-                mixr[j] += tr[j];
+            }
+            eq_run(T, n);
+            {   /* the level, eased over the chunk; the meter; into the mix and the plate */
+                float g = T->gain_s;
+                const float dg = (T->gain - g) / (float)n;
+                for (j = 0; j < n; j++) {
+                    const float l = tl[j] * g, r = tr[j] * g, a = fm_maxf(fm_fabsf(l), fm_fabsf(r));
+                    if (a > pk[t])
+                        pk[t] = a;
+                    mixl[j] += l;
+                    mixr[j] += r;
+                    rsend[j] += rs[j] * g;
+                    g += dg;
+                }
+                T->gain_s = T->gain;
             }
             T->dk = fm_flush(dk);
             T->dd = fm_flush(dd);
@@ -1279,7 +1416,8 @@ EN_COLD static void trk_reset(int t)
     tk_t *T = &tk[t];
     int i;
     for (i = 0; i < EN_SEQ_MAX; i++)
-        E->seq[i].on = 0, E->seq[i].len = 1, T->kept[i].on = 0, T->kept[i].len = 1;
+        E->seq[i].on = 0, E->seq[i].len = 1, T->kept[i].on = 0, T->kept[i].len = 1,
+        E->seq[i].lock[0] = E->seq[i].lock[1] = E->seq[i].lock[2] = 0;
     E->seq_len = 16, E->seq_div = EN_DIV_16, E->seq_pos = 0, E->seq_steps = 0;
     E->root = 5, E->mode = MODE_DORIAN, E->pool = EN_MODE_POOL[MODE_DORIAN], E->voicing = EN_VO_FIRST;
     E->key_note = 0, E->now_n = 0;
@@ -1293,7 +1431,11 @@ EN_COLD static void trk_reset(int t)
         T->env[i].lv = 0.0f, T->env[i].st = ST_IDLE;
     T->amp_s = 0.0f;
     T->len = 0.0f;
+    T->lk[0] = T->lk[1] = T->lk[2] = 0;
     syn_defaults(t);
+    for (i = 0; i < MX_N; i++)
+        mix_cmd(t, i, en_mix_def(i));
+    T->gain_s = T->gain;
 }
 EN_COLD static void quiet(void)                  /* everything silent, now: the envelopes, the tapes, the plate */
 {
@@ -1350,9 +1492,16 @@ static void drain(void)
             volatile en_step_t *p = &E->seq[a & 0x3F];
             p->on = (uint8_t)(b & 1), p->deg = (uint8_t)(b >> 1 & 7), p->oct = (uint8_t)(b >> 4 & 3);
             p->voi = (uint8_t)(b >> 6 & 3), p->len = (uint8_t)((b >> 8 & 0x3F) + 1);
+            if (!p->on)
+                p->lock[0] = p->lock[1] = p->lock[2] = 0;
             break;
         }
         case C_SYN: syn_cmd(t, a, b); break;
+        case C_MIX: mix_cmd(t, a, b); break;
+        case C_LOCK:
+            if ((b >> 8 & 3) < EN_NLK)
+                E->seq[a & 0x3F].lock[b >> 8 & 3] = (uint8_t)(b & 0xFF);
+            break;
         case C_BASS: bass_on(b & 0x7F, a ? a : 1, (b >> 7) * 20); break;
         case C_PING: ping_on(b & 0x7F, a ? a : 1); break;
         default: break;

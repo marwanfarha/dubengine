@@ -29,7 +29,7 @@ static void sel(int t) { en_sel = (uint8_t)t; }
 
 int main(void)
 {
-    en_step_t st = {1, 0, 2, EN_VO_ROOT, 2};
+    en_step_t st = {1, 0, 2, EN_VO_ROOT, 2, {0, 0, 0}};
     float a, b;
     uint32_t sa, sb;
     en_init();
@@ -84,6 +84,48 @@ int main(void)
     CHECK(en_meter[1] > 0.02f && en_meter[0] < 0.002f && en_meter[2] > 0.02f, "the meters: B alone (%.4f %.4f %.4f)",
           (double)en_meter[0], (double)en_meter[1], (double)en_meter[2]);
     en_key_chord(62, 0);
+    run_ms(4000);
+    /* the level: B's down, B quieter; back at 80 as it was */
+    sel(1), en_syn_set(SY_AA, 0), en_syn_set(SY_AS, 100), en_syn_set(SY_AR, 0), en_syn_set(SY_DETUNE, 0);
+    en_key_chord(62, 1), run_ms(300), a = run_ms(300), en_key_chord(62, 0), run_ms(500);
+    en_mix_set(MX_LEVEL, 40);
+    en_key_chord(62, 1), run_ms(300), b = run_ms(300), en_key_chord(62, 0), run_ms(500);
+    CHECK(b > 0.2f * a && b < 0.3f * a, "Level 40: a quarter (%.2f then %.2f)", (double)a, (double)b);
+    en_mix_set(MX_LEVEL, 0);
+    en_key_chord(62, 1), run_ms(300), b = run_ms(300), en_key_chord(62, 0), run_ms(500);
+    CHECK(b < 0.01f * a, "Level 0: silent (%.3f)", (double)b);
+    en_mix_set(MX_LEVEL, 80);
+    /* the EQ: flat, 0 dB everywhere; a bell +12 dB at 678 Hz: there and only there; the cuts take the ends away */
+    run_ms(20);
+    CHECK(en_eq_db(100.0f) == 0.0f && en_eq_db(5000.0f) == 0.0f, "the EQ flat");
+    en_mix_set(MX_EQ + EN_EQ_BELL2 * EQ_NF + EQ_GAIN, 12);
+    run_ms(20);
+    CHECK(en_eq_db(en_eq_hz(51)) > 11.5f && en_eq_db(en_eq_hz(51)) < 12.5f && en_eq_db(60.0f) < 1.0f && en_eq_db(10000.0f) < 1.0f,
+          "a bell: +12 dB at its frequency (%.1f, %.1f, %.1f)", (double)en_eq_db(en_eq_hz(51)), (double)en_eq_db(60.0f),
+          (double)en_eq_db(10000.0f));
+    en_mix_set(MX_EQ + EN_EQ_BELL2 * EQ_NF + EQ_GAIN, 0);
+    en_mix_set(MX_EQ + EN_EQ_LOCUT * EQ_NF + EQ_FREQ, 60);   /* (~1.26 kHz) */
+    en_mix_set(MX_EQ + EN_EQ_HISHELF * EQ_NF + EQ_GAIN, -15);
+    run_ms(20);
+    CHECK(en_eq_db(100.0f) < -30.0f && en_eq_db(15000.0f) < -12.0f && en_eq_db(3000.0f) > -4.0f, "a low cut and a high shelf (%.1f %.1f %.1f)",
+          (double)en_eq_db(100.0f), (double)en_eq_db(15000.0f), (double)en_eq_db(3000.0f));
+    en_key_chord(62, 1), run_ms(300), b = run_ms(300), en_key_chord(62, 0), run_ms(500);
+    CHECK(b < 0.7f * a && b > 0.0f, "and heard: the low chord thinner (%.2f then %.2f)", (double)a, (double)b);
+    en_mix_set(MX_EQ + EN_EQ_LOCUT * EQ_NF + EQ_FREQ, 0), en_mix_set(MX_EQ + EN_EQ_HISHELF * EQ_NF + EQ_GAIN, 0);
+    CHECK(en_trk[0].mx[MX_LEVEL] == 80 && en_trk[0].mx[MX_EQ + EN_EQ_BELL2 * EQ_NF + EQ_GAIN] == 0, "A's mix untouched");
+    /* a step's locks: its own Level while it sounds; the next step without one, the page's again */
+    en_seq_length(8), en_seq_step(0, &st), en_seq_step(4, &st), en_seq_lock(0, EN_LK_LEVEL, 10);
+    run_ms(20);
+    CHECK(en_trk[1].seq[0].lock[EN_LK_LEVEL] == 11 && en_trk[1].seq[4].lock[EN_LK_LEVEL] == 0, "the lock kept on its step");
+    en_seq_play(1);
+    run_ms(60), b = run_ms(150);                 /* step 1, locked low */
+    run_ms(350), a = run_ms(150);                /* step 5, as the page has it */
+    CHECK(b < 0.3f * a && b > 0.0f, "step 1 locked quiet, step 5 as it was (%.2f then %.2f)", (double)b, (double)a);
+    en_seq_play(0);
+    st.on = 0, en_seq_step(0, &st), st.on = 1;
+    run_ms(20);
+    CHECK(en_trk[1].seq[0].lock[EN_LK_LEVEL] == 0, "a step emptied: its locks gone");
+    en_seq_clear();
     run_ms(4000);
     /* the bass and the ping: a note each, heard, then gone */
     a = run_ms(200);

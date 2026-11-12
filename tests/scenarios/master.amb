@@ -1,0 +1,103 @@
+# dubengine: the Master page (GLO: the levels and the meters), each track's EQ (GLO again), Delay 2, a step's locks
+wav master.wav
+wait 500
+# GLO: Master. KNOB 1 track A's level, KNOB 2 track B's
+tap GLO
+wait 100
+expect page 14
+spin K1 -10
+spin K2 5
+wait 100
+expect amx0 60
+expect bmx0 90
+key w0 down
+wait 400
+shot master.png
+key w0 up
+wait 300
+# GLO again: track A's EQ. KNOB 1 the band; Bell 2 up 6 dB, its frequency up; the low cut on
+tap GLO
+wait 100
+expect page 15
+expect track 0
+spin K1 3
+spin K3 6
+spin K2 5
+wait 100
+expect amx11 6
+expect amx10 61
+spin K1 -3
+spin K2 15
+wait 100
+expect amx1 30
+shot eqa.png
+# GLO again: track B's EQ, flat still; again: Master
+tap GLO
+wait 100
+expect track 1
+expect page 15
+expect bmx11 0
+shot eqb.png
+tap GLO
+wait 100
+expect page 14
+# FX: Delay, then Delay 2: Width and Blur
+tap FX
+tap FX
+wait 100
+expect page 13
+spin K1 10
+spin K2 -5
+wait 100
+expect bsyn58 70
+expect bsyn59 40
+shot delay2.png
+# a step's locks: step edit, a step held; ALGORITHM its Level, PRESETS its Cutoff, SELECT its Delay mix
+tap HOME
+tap HOME
+wait 100
+expect track 0
+tap REC
+tapkey w0
+tapkey w4
+key w0 down
+wait 50
+spin ALGO -10
+spin PRESET 5
+spin SELECT 10
+wait 50
+shot locks.png
+key w0 up
+wait 100
+expect lock0_0 50
+expect lock1_0 58
+expect lock2_0 55
+expect lock0_4 -1
+expect seqon 2
+# turned down past 0: the lock gone
+key w0 down
+wait 50
+spin ALGO -30
+wait 50
+key w0 up
+wait 100
+expect lock0_0 -1
+expect lock1_0 58
+tap REC
+# it plays: the locked step and the free one
+tap PLAY
+wait 2200
+tap PLAY
+# saved, and back after a restart
+wait 5000
+reboot
+wait 500
+expect amx0 60
+expect bmx0 90
+expect amx11 6
+expect amx1 30
+expect bsyn58 70
+expect lock1_0 58
+expect lock2_0 55
+expect lock0_0 -1
+wavstop

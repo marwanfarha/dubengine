@@ -64,7 +64,9 @@ enum { EN_DIV_8, EN_DIV_16, EN_DIV_32, EN_DIV_8T, EN_DIV_16T, EN_NDIV };
 extern const char *const EN_DIV_NAME[EN_NDIV];
 typedef struct {
     uint8_t on, deg, oct, voi, len;
+    uint8_t lock[3];                             /* its locks (EN_LK_*): 0 none, else the value + 1 (0..100) */
 } en_step_t;
+enum { EN_LK_LEVEL, EN_LK_CUTOFF, EN_LK_SEND, EN_NLK };   /* a step's own Level, Cutoff and Delay mix, while it sounds */
 extern volatile uint8_t en_seq_playing, en_seq_rec, en_metro_on, en_metro_lvl;
 void en_seq_play(int on);
 void en_seq_record(int on);
@@ -72,7 +74,8 @@ void en_seq_length(int steps);                   /* 1..EN_SEQ_MAX */
 void en_seq_division(int div);                   /* EN_DIV_* */
 void en_seq_clear(void);                         /* the pattern cleared, kept to bring back */
 void en_seq_restore(void);                       /* the pattern before the last clear */
-void en_seq_step(int i, const en_step_t *st);    /* step i set (st->on 0: emptied) */
+void en_seq_step(int i, const en_step_t *st);    /* step i set (st->on 0: emptied, its locks gone); the locks: en_seq_lock */
+void en_seq_lock(int i, int which, int v);       /* step i's lock (EN_LK_*): v 0..100, or -1 none */
 void en_metro(int on, int level);                /* on 0/1, level 0..100 */
 int en_seq_note(const en_step_t *st);            /* a step's root as a MIDI note, in the selected track's key now */
 int en_note_step(int note, en_step_t *st);       /* a key's note as a step's degree and octave: 0 if not in the scale */
@@ -115,6 +118,21 @@ extern const char *const EN_SYNC_NAME[EN_NSYNC];
 void en_syn_set(int p, int v);
 float en_delay_ms(int v);                          /* the Delay's Free time, SY_DMS's value in ms */
 
+/* a track's place in the mix: its level (0..100: 80 as it is, 100 +4 dB) and its 8-band EQ, on the track with its
+ * delay: a low cut and a high cut (12 dB an octave; at their ends, off), a low and a high shelf, four bells. Each band
+ * its frequency (0..100: 20 Hz .. 20 kHz), its gain (-15..+15 dB; the cuts: none) and, the bells, its Q (0..100:
+ * 0.35 .. 8). Parameters: en_mx[], set by en_mix_set */
+#define EN_NEQ 8
+enum { EN_EQ_LOCUT, EN_EQ_LOSHELF, EN_EQ_BELL1, EN_EQ_BELL2, EN_EQ_BELL3, EN_EQ_BELL4, EN_EQ_HISHELF, EN_EQ_HICUT };
+enum { EQ_FREQ, EQ_GAIN, EQ_Q, EQ_NF };
+enum { MX_LEVEL, MX_EQ, MX_N = MX_EQ + EN_NEQ * EQ_NF };   /* (band b's: MX_EQ + b * EQ_NF + EQ_*) */
+int en_mix_lo(int p);
+int en_mix_hi(int p);
+int en_mix_def(int p);
+void en_mix_set(int p, int v);
+float en_eq_hz(int v);                             /* a band's frequency, its value in Hz */
+float en_eq_db(float hz);                          /* (UI) the selected track's EQ at hz, dB */
+
 /* (UI, tests) a track as the engine has it: its key, its pattern and where it plays, the key whose chord sounds (0
  * none) and its notes as voiced, the chord last struck (its root's pitch class, its quality EN_Q_*, a count that moves
  * with each strike), its parameters; and for the screen's pictures the modulation on each target (EN_MD_*), each
@@ -126,7 +144,7 @@ typedef struct {
     uint16_t pool;
     uint32_t seq_steps;
     uint8_t key_note, key_tri[3], now_pc, now_q, now_n;
-    int16_t syn[SY_N];
+    int16_t syn[SY_N], mx[MX_N];
     float syn_amp, md_now[EN_NMD], env_lv[4], env_age[4], lfo_ph[2], lfo_val[2], cut_now, fold_now, det_now;
     uint8_t env_st[4];
 } en_trk_t;
@@ -142,6 +160,7 @@ extern volatile en_trk_t en_trk[EN_NTRK];
 #define en_now_q (en_trk[en_sel].now_q)
 #define en_now_n (en_trk[en_sel].now_n)
 #define en_syn (en_trk[en_sel].syn)
+#define en_mx (en_trk[en_sel].mx)
 #define en_syn_amp (en_trk[en_sel].syn_amp)
 #define en_md_now (en_trk[en_sel].md_now)
 #define en_env_lv (en_trk[en_sel].env_lv)

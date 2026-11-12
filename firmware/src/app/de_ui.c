@@ -13,7 +13,13 @@
  *               chord on a step or takes it off, a step held and a knob turned locks it (Chord, Voicing, Octave,
  *               Length) */
 
-enum { DE_PLAY, DE_PATTERN, DE_OSC, DE_FILT, DE_AENV, DE_FENV, DE_E1, DE_E2, DE_L1, DE_L2, DE_DELAY, DE_REVERB, DE_REVERB2, DE_NPAGE };
+enum { DE_PLAY, DE_PATTERN, DE_OSC, DE_FILT, DE_AENV, DE_FENV, DE_E1, DE_E2, DE_L1, DE_L2, DE_DELAY, DE_REVERB, DE_REVERB2, DE_DELAY2,
+       DE_MASTER, DE_EQ, DE_NPAGE };
+/* a page's control: a synth parameter (SY_*), a mix parameter (DE_MX + MX_*), the EQ page's band (DE_ID_BAND), a
+ * track's level (DE_ID_LVL + the track) */
+#define DE_MX 2000
+#define DE_ID_BAND 3000
+#define DE_ID_LVL 4000
 /* the sound pages: each its four knobs (a synth parameter, SY_*), and ALGORITHM's and PRESETS' (-1 none) */
 static const int16_t DE_KNOBS[DE_NPAGE][6] = {
     {0}, {0},
@@ -28,15 +34,26 @@ static const int16_t DE_KNOBS[DE_NPAGE][6] = {
     {SY_DTIME, SY_DFB, SY_DMIX, SY_DTONE, SY_DWOW, SY_DDRIVE},
     {SY_RDECAY, SY_RSIZE, SY_RPRE, SY_RMIX, SY_RWIDTH, SY_RHICUT},
     {SY_RDAMP, SY_RDIFF, SY_RMODD, SY_RMODR, SY_RLOW, SY_RFREEZE},
+    {SY_DWIDTH, SY_DBLUR, -1, -1, -1, -1},
+    {DE_ID_LVL, DE_ID_LVL + 1, -1, -1, -1, -1},
+    {DE_ID_BAND, -1, -1, -1, -1, -1},            /* (the band's Freq, Gain, Q: de_kid) */
 };
 static const char *const DE_PAGE_NAME[DE_NPAGE] = {"PLAY", "PATTERN", "OSC", "FILTER", "AMP ENV", "FILTER ENV", "ENV 1",
-                                                   "ENV 2", "LFO 1", "LFO 2", "DELAY", "REVERB", "REVERB 2"};
+                                                   "ENV 2", "LFO 1", "LFO 2", "DELAY", "REVERB", "REVERB 2", "DELAY 2",
+                                                   "MASTER", "EQ"};
 static const uint8_t DE_ENV_CYCLE[6] = {DE_OSC, DE_FILT, DE_AENV, DE_FENV, DE_E1, DE_E2};
 static int de_sound_page(int p) { return p >= DE_OSC && p < DE_NPAGE; }
+static int de_band(void);
 static int de_kid(int pg, int i)                 /* a sound page's control i: the Delay's Time the free one in Free */
 {
     if (pg == DE_DELAY && i == 0 && !en_syn[SY_DSYNC])
         return SY_DMS;
+    if (pg == DE_EQ && i >= 1 && i <= 3) {       /* the band's own: the cuts no gain, only the bells a Q */
+        const int b = de_band(), f = i - 1;
+        if ((f == EQ_GAIN && (b == EN_EQ_LOCUT || b == EN_EQ_HICUT)) || (f == EQ_Q && (b < EN_EQ_BELL1 || b > EN_EQ_BELL4)))
+            return -1;
+        return DE_MX + MX_EQ + b * EQ_NF + f;
+    }
     return DE_KNOBS[pg][i];
 }
 #define DE_HOLD_MS 1500u                         /* SEQ held: clear */
@@ -53,6 +70,9 @@ static const char *const DE_Q_NAME[EN_Q_OTHER + 1] = {"", "m", "dim", "aug", "su
 static struct {
     uint8_t page, edit, oct, spage;              /* page; step edit; the keys' octave (0..2: -1..+1); step page */
     uint8_t tempo, root[EN_NTRK], mode[EN_NTRK], voi[EN_NTRK];   /* the tempo; each track's key and voicing */
+    uint8_t band;                                /* the EQ page's band */
+    float mpk[EN_NMETER], mhold[EN_NMETER];      /* the Master page's meters: now (falling), the peak held */
+    uint32_t mhold_t[EN_NMETER];
     uint32_t btn, keys;
     uint32_t down_t[NB];
     uint8_t held_done[NB];                       /* (a hold's action done: its release does nothing) */
@@ -69,6 +89,7 @@ static struct {
     uint32_t touch_t;
 } de;
 
+static int de_band(void) { return de.band < EN_NEQ ? de.band : 0; }
 static int de_count(uint32_t p)
 {
     int n = 0;
@@ -168,11 +189,12 @@ static void de_spage_set(int p)                  /* step edit's page of 16 steps
  * each track's key, pattern and sound. Saved with GLO held, and by itself once things are quiet: stopped, nothing
  * touched for 3 s, nothing ringing (a save stops the audio for a moment while the flash is erased). */
 #define DE_SAVE_MAGIC 0x474E4544u                /* "DENG" */
-#define DE_SAVE_VER 2u                           /* (2: two tracks, each its key) */
+#define DE_SAVE_VER 3u                           /* (2: two tracks, each its key; 3: the steps' locks, the level and the EQ) */
 typedef struct {
     uint8_t len, div, voicing, root, mode, rsv[3];
-    uint8_t step[EN_SEQ_MAX][5];                 /* on, degree, octave, voicing, length */
+    uint8_t step[EN_SEQ_MAX][8];                 /* on, degree, octave, voicing, length, its three locks */
     int16_t syn[SY_N];
+    int8_t mx[MX_N];
 } de_trk_save_t;
 typedef struct {
     uint32_t magic;
@@ -196,9 +218,12 @@ static void de_gather(de_save_t *v)
         for (i = 0; i < EN_SEQ_MAX; i++) {
             k->step[i][0] = en_trk[t].seq[i].on, k->step[i][1] = en_trk[t].seq[i].deg, k->step[i][2] = en_trk[t].seq[i].oct;
             k->step[i][3] = en_trk[t].seq[i].voi, k->step[i][4] = en_trk[t].seq[i].len;
+            k->step[i][5] = en_trk[t].seq[i].lock[0], k->step[i][6] = en_trk[t].seq[i].lock[1], k->step[i][7] = en_trk[t].seq[i].lock[2];
         }
         for (i = 0; i < SY_N; i++)
             k->syn[i] = en_trk[t].syn[i];
+        for (i = 0; i < MX_N; i++)
+            k->mx[i] = (int8_t)en_trk[t].mx[i];
     }
 }
 static uint32_t de_sum(const de_save_t *v)       /* (has anything changed since the last save) */
@@ -231,7 +256,7 @@ static void de_load(void)                         /* the last save, to the engin
                                                   * defaults) */
 {
     const int n = plat_store_load(OBJ_DE, &de_sv, sizeof de_sv);
-    int i, t;
+    int i, j, t;
     if (n == (int)sizeof de_sv && de_sv.magic == DE_SAVE_MAGIC && de_sv.ver == DE_SAVE_VER && de_sv.nsyn <= SY_N) {
         de.tempo = (uint8_t)(de_sv.tempo < EN_TEMPO_MIN ? EN_TEMPO_MIN : de_sv.tempo > EN_TEMPO_MAX ? EN_TEMPO_MAX : de_sv.tempo);
         en_metro(de_sv.metro_on, de_sv.metro_lvl);
@@ -249,9 +274,14 @@ static void de_load(void)                         /* the last save, to the engin
                 st.len = k->step[i][4];
                 if (st.on || i < k->len)
                     en_seq_step(i, &st);
+                for (j = 0; j < EN_NLK; j++)
+                    if (st.on && k->step[i][5 + j])
+                        en_seq_lock(i, j, k->step[i][5 + j] - 1);
             }
             for (i = 0; i < de_sv.nsyn; i++)
                 en_syn_set(i, k->syn[i]);
+            for (i = 0; i < MX_N; i++)
+                en_mix_set(i, k->mx[i]);
         }
         en_sel = (uint8_t)(de_sv.sel < EN_NTRK ? de_sv.sel : 0);
     }
@@ -332,8 +362,18 @@ static void de_button(int b)                    /* a press */
     case B_LFO:
         de.page = de.page == DE_L1 ? DE_L2 : DE_L1;
         break;
-    case B_FX:                                   /* Delay, Reverb, Reverb 2, in turn */
-        de.page = de.page == DE_DELAY ? DE_REVERB : de.page == DE_REVERB ? DE_REVERB2 : DE_DELAY;
+    case B_GLO:                                  /* (a tap) Master, track A's EQ, track B's EQ, in turn */
+        if (de.page == DE_MASTER) {
+            de_track(0);
+            de.page = DE_EQ;
+        } else if (de.page == DE_EQ && en_sel == 0) {
+            de_track(1);
+        } else {
+            de.page = DE_MASTER;
+        }
+        break;
+    case B_FX:                                   /* Delay, Delay 2, Reverb, Reverb 2, in turn */
+        de.page = de.page == DE_DELAY ? DE_DELAY2 : de.page == DE_DELAY2 ? DE_REVERB : de.page == DE_REVERB ? DE_REVERB2 : DE_DELAY;
         break;
     case B_SEQ:
         de.page = DE_PATTERN;
@@ -388,10 +428,13 @@ static void de_step_set(int i, const en_step_t *t)   /* a step, to the engine; a
 {
     en_seq_step(i, t);
     en_seq[i].on = t->on, en_seq[i].deg = t->deg, en_seq[i].oct = t->oct, en_seq[i].voi = t->voi, en_seq[i].len = t->len;
+    if (!t->on)                                  /* (emptied: its locks gone, as the engine's) */
+        en_seq[i].lock[0] = en_seq[i].lock[1] = en_seq[i].lock[2] = 0;
 }
 static void de_step_get(int i, en_step_t *t)
 {
     t->on = en_seq[i].on, t->deg = en_seq[i].deg, t->oct = en_seq[i].oct, t->voi = en_seq[i].voi, t->len = en_seq[i].len;
+    t->lock[0] = en_seq[i].lock[0], t->lock[1] = en_seq[i].lock[1], t->lock[2] = en_seq[i].lock[2];
 }
 static void de_key(int key, int down)
 {
@@ -441,30 +484,97 @@ static void de_key(int key, int down)
 
 static int de_param_get(int id)                  /* a page's parameter's value now */
 {
-    return id >= 0 ? en_syn[id] : 0;
+    return id >= DE_ID_LVL ? en_trk[(id - DE_ID_LVL) % EN_NTRK].mx[MX_LEVEL] : id == DE_ID_BAND ? de_band()
+           : id >= DE_MX ? en_mx[id - DE_MX] : id >= 0 ? en_syn[id] : 0;
+}
+static void de_param_range(int id, int *lo, int *hi)
+{
+    if (id >= DE_ID_LVL)
+        *lo = 0, *hi = 100;
+    else if (id == DE_ID_BAND)
+        *lo = 0, *hi = EN_NEQ - 1;
+    else if (id >= DE_MX)
+        *lo = en_mix_lo(id - DE_MX), *hi = en_mix_hi(id - DE_MX);
+    else
+        *lo = SYN_INFO[id].lo, *hi = SYN_INFO[id].hi;
 }
 static void de_param_turn(int id, int d)         /* turned d detents: a click a step (a wide range: two) */
 {
+    int lo, hi, v;
     if (id < 0)
         return;
-    {
-        const int lo = SYN_INFO[id].lo, hi = SYN_INFO[id].hi, st = hi - lo > 40 ? 2 : 1;
-        int v = en_syn[id] + d * st;
-        v = v < lo ? lo : v > hi ? hi : v;
+    de_param_range(id, &lo, &hi);
+    v = de_param_get(id) + d * (hi - lo > 40 ? 2 : 1);
+    v = v < lo ? lo : v > hi ? hi : v;
+    if (id >= DE_ID_LVL) {                       /* a track's level, whichever is selected */
+        const uint8_t was = en_sel, t = (uint8_t)((id - DE_ID_LVL) % EN_NTRK);
+        en_sel = t;
+        en_mix_set(MX_LEVEL, v);
+        en_sel = was;
+        en_trk[t].mx[MX_LEVEL] = (int16_t)v;
+    } else if (id == DE_ID_BAND) {
+        de.band = (uint8_t)v;
+    } else if (id >= DE_MX) {
+        en_mix_set(id - DE_MX, v);
+        en_mx[id - DE_MX] = (int16_t)v;
+    } else {
         en_syn_set(id, v);
         en_syn[id] = (int16_t)v;                 /* (shown at once: the engine sets the same) */
     }
 }
 static const char *de_param_name(int id)
 {
-    return id >= 0 ? SYN_INFO[id].name : "";
+    static const char *const F[EQ_NF] = {"Freq", "Gain", "Q"};
+    return id >= DE_ID_LVL ? (id - DE_ID_LVL ? "Level B" : "Level A") : id == DE_ID_BAND ? "Band"
+           : id >= DE_MX ? (id - DE_MX == MX_LEVEL ? "Level" : F[(id - DE_MX - MX_EQ) % EQ_NF]) : id >= 0 ? SYN_INFO[id].name : "";
+}
+static void de_hz(char *b, float hz)             /* "98", "2.0K", "12K" */
+{
+    if (hz < 1000.0f) {
+        de_num(b, (int)(hz + 0.5f));
+    } else if (hz < 10000.0f) {
+        const int d = (int)(hz * 0.01f + 0.5f);
+        de_num(b, d / 10);
+        de_cat(b, ".");
+        de_num(b + de_len(b), d % 10);
+        de_cat(b, "K");
+    } else {
+        de_num(b, (int)(hz * 0.001f + 0.5f));
+        de_cat(b, "K");
+    }
 }
 static void de_param_text(int id, char *b)        /* its value as shown */
 {
+    static const char *const BAND[EN_NEQ] = {"Lo cut", "Lo shelf", "Bell 1", "Bell 2", "Bell 3", "Bell 4", "Hi shelf", "Hi cut"};
     const int v = de_param_get(id);
     b[0] = 0;
     if (id < 0)
         return;
+    if (id == DE_ID_BAND) {
+        de_cat(b, BAND[v % EN_NEQ]);
+        return;
+    }
+    if (id >= DE_MX && id < DE_ID_BAND && id - DE_MX >= MX_EQ) {
+        const int band = (id - DE_MX - MX_EQ) / EQ_NF, f = (id - DE_MX - MX_EQ) % EQ_NF;
+        if (f == EQ_FREQ) {
+            if ((band == EN_EQ_LOCUT && v == 0) || (band == EN_EQ_HICUT && v == 100))
+                de_cat(b, "Off");
+            else
+                de_hz(b, en_eq_hz(v));
+        } else if (f == EQ_GAIN) {
+            if (v > 0)
+                de_cat(b, "+");
+            de_num(b + de_len(b), v);
+            de_cat(b, "dB");
+        } else {
+            de_num(b, v);
+        }
+        return;
+    }
+    if (id >= DE_MX) {
+        de_num(b, v);
+        return;
+    }
     switch (id) {
     case SY_WAVE: de_cat(b, EN_WAVE_NAME[v % EN_NWAVE]); return;
     case SY_L1SHAPE: case SY_L2SHAPE: de_cat(b, EN_LS_NAME[v % EN_NLSHAPE]); return;
@@ -504,7 +614,7 @@ static void de_knob(int k, int d)               /* KNOB 1..4 (k 0..3) turned d d
             t.len = (uint8_t)((int)t.len + d < 1 ? 1 : (int)t.len + d > de_nsteps() ? de_nsteps() : (int)t.len + d);
         t.on = 1;
         de_step_set(de.step, &t);
-        de.last = t;
+        de.last = t, de.last.lock[0] = de.last.lock[1] = de.last.lock[2] = 0;
         de.step_turned = 1;
         if (k <= 2 && !en_seq_playing) {         /* (the new chord heard) */
             const int key = DE_WHITE[de.step % 16];
@@ -554,6 +664,30 @@ static void de_knob(int k, int d)               /* KNOB 1..4 (k 0..3) turned d d
     }
 }
 
+static void de_lock_turn(int which, int d)       /* the step held: a lock a step on from where it is (none: from the page's
+                                                  * value); turned down past 0: none again */
+{
+    static const char *const N[EN_NLK] = {"LEVEL ", "CUTOFF ", "DELAY MIX "};
+    static const uint8_t SRC[EN_NLK] = {SY_LEVEL, SY_CUT, SY_DMIX};
+    char b[24];
+    en_step_t t;
+    int v;
+    de_step_get(de.step, &t);
+    if (!t.on)
+        return;
+    v = (t.lock[which] ? t.lock[which] - 1 : en_syn[SRC[which]]) + 2 * d;
+    v = v > 100 ? 100 : v;
+    en_seq_lock(de.step, which, v < 0 ? -1 : v);
+    en_seq[de.step].lock[which] = (uint8_t)(v < 0 ? 0 : v + 1);
+    de.step_turned = 1;
+    b[0] = 0;
+    de_cat(b, N[which]);
+    if (v < 0)
+        de_cat(b, "FREE");
+    else
+        de_num(b + de_len(b), v);
+    de_say(b);
+}
 static void midi_in(void)                        /* USB MIDI in: a note in the track's scale, its chord, as the keys play it */
 {
     uint32_t pkt;
@@ -594,8 +728,15 @@ static void de_input(void)
         if (d)
             de_knob((int)i, (int)d), de.act_t = de.touch_t = now, de.touch = (int8_t)i;
     }
-    {   /* ALGORITHM and PRESETS: on Env 1, Env 2 the target and the depth; on the LFOs the sync */
+    {   /* ALGORITHM and PRESETS: on Env 1, Env 2 the target and the depth; on the LFOs the sync; a step held: its
+         * Level's and its Cutoff's locks (SELECT: its Delay mix's) */
         const int32_t da = plat_enc(EN_ALGO), dp = plat_enc(EN_PRESET);
+        if (de.edit && de.step >= 0) {
+            if (da)
+                de_lock_turn(EN_LK_LEVEL, (int)da), de.act_t = now;
+            if (dp)
+                de_lock_turn(EN_LK_CUTOFF, (int)dp), de.act_t = now;
+        }
         if (!de_sound_page(de.page) && de.edit && de.step < 0 && da)   /* (Play, Pattern, step edit: the page of steps) */
             de_spage_set(de.spage + (da > 0 ? 1 : -1)), de.act_t = now;
         if (de_sound_page(de.page) && !(de.edit && de.step >= 0)) {
@@ -607,6 +748,8 @@ static void de_input(void)
     }
     {   /* SELECT: on the Delay page, Sync or Free */
         const int32_t ds = plat_enc(EN_SELECT);
+        if (ds && de.edit && de.step >= 0)
+            de_lock_turn(EN_LK_SEND, (int)ds), de.act_t = now;
         if (ds && de.page == DE_DELAY && !(de.edit && de.step >= 0)) {
             en_syn_set(SY_DSYNC, ds > 0 ? 0 : 1);
             en_syn[SY_DSYNC] = (int16_t)(ds > 0 ? 0 : 1);
@@ -934,6 +1077,74 @@ static void de_pic_reverb(void)                  /* the tail in seconds: the pre
     cv_text(PX + PW - text_w(&FONT_T_XS, b), PY, &FONT_T_XS, b, DE_DIM);
 }
 
+static void de_pic_master(void)                  /* the meters: track A, track B, the output; dB, the peak held 1.5 s */
+{
+    static const char *const N[EN_NMETER] = {"A", "B", "OUT"};
+    static const int8_t TICK[5] = {-48, -36, -24, -12, 0};
+    const uint32_t now = plat_ms();
+    const int x0 = PX + 30, w = PW - 34;         /* -54 dB .. +6 dB across */
+    char b[8];
+    int i;
+    for (i = 0; i < 5; i++) {
+        const int x = x0 + (TICK[i] + 54) * w / 60;
+        cv_rect(x, PY, 1, PH - 12, DE_GRID);
+        b[0] = 0;
+        de_num(b, TICK[i]);
+        cv_text(x - text_w(&FONT_T_XS, b) / 2, PY + PH - 10, &FONT_T_XS, b, DE_DIM);
+    }
+    for (i = 0; i < EN_NMETER; i++) {
+        const int y = PY + 4 + i * 26;
+        const float v = en_meter[i];
+        float db, hd;
+        en_meter[i] = 0.0f;                      /* (taken: the engine fills it again) */
+        de.mpk[i] = v > de.mpk[i] ? v : de.mpk[i] * 0.86f;
+        if (v >= de.mhold[i] || now - de.mhold_t[i] > 1500u)
+            de.mhold[i] = v, de.mhold_t[i] = now;
+        db = 6.0206f * fm_log2f(fm_maxf(de.mpk[i], 1e-5f));
+        hd = 6.0206f * fm_log2f(fm_maxf(de.mhold[i], 1e-5f));
+        cv_text(PX, y + 2, &FONT_T_B, N[i], i == en_sel ? DE_OR : DE_FG);
+        cv_rect(x0, y, w, 18, DE_LINE);
+        if (db > -54.0f) {
+            const int bw = (int)((fm_minf(db, 6.0f) + 54.0f) * (float)w * (1.0f / 60.0f)), z = 54 * w / 60;
+            cv_rect(x0, y, bw < z ? bw : z, 18, DE_OR);
+            if (bw > z)                          /* (over full scale: into the clip) */
+                cv_rect(x0 + z, y, bw - z, 18, DE_FG);
+        }
+        if (hd > -54.0f)
+            cv_rect(x0 + (int)((fm_minf(hd, 6.0f) + 54.0f) * (float)w * (1.0f / 60.0f)) - 1, y, 2, 18, DE_FG);
+    }
+}
+static void de_pic_eq(void)                      /* the track's EQ, 20 Hz .. 20 kHz, +-18 dB: the curve as heard, the bands */
+{
+    static const float TICK[3] = {100.0f, 1000.0f, 10000.0f};
+    static const char *const TN[3] = {"100", "1K", "10K"};
+    const int ym = PY + PH / 2;
+    int i, py = 0;
+    for (i = 0; i < 3; i++) {
+        const int x = PX + (int)((float)PW * fm_log2f(TICK[i] / 20.0f) / 9.966f);
+        cv_rect(x, PY, 1, PH, DE_GRID);
+        cv_text(x + 2, PY + PH - 12, &FONT_T_XS, TN[i], DE_DIM);
+    }
+    cv_rect(PX, ym, PW, 1, DE_LINE);             /* (0 dB) */
+    cv_text(PX, PY, &FONT_T_XS, "+18", DE_DIM);
+    for (i = 0; i < PW; i += 2) {
+        const float hz = 20.0f * fm_exp2f(9.966f * (float)i / (float)PW);
+        const int y = ym - (int)(fm_clampf(en_eq_db(hz), -18.0f, 18.0f) * (float)(PH / 2 - 1) * (1.0f / 18.0f));
+        if (i)
+            cv_line(PX + i - 2, py, PX + i, y, DE_OR);
+        py = y;
+    }
+    for (i = 0; i < EN_NEQ; i++) {               /* each band: a mark at its frequency and gain; the page's, lit */
+        const int fv = en_mx[MX_EQ + i * EQ_NF + EQ_FREQ], gv = en_mx[MX_EQ + i * EQ_NF + EQ_GAIN];
+        const int x = PX + fv * PW / 100, y = ym - gv * (PH / 2 - 1) / 18;
+        if (i == de_band()) {
+            cv_rect(x, PY, 1, PH, DE_ORD);
+            cv_rect(x - 2, y - 2, 5, 5, DE_FG);
+        } else {
+            cv_rect(x - 1, y - 1, 3, 3, DE_DIM);
+        }
+    }
+}
 static void de_touch_text(char *lab, char *val)  /* the control last turned: its name and value (for the big readout) */
 {
     const int id = de.touch < 6 ? de_kid(de.page, de.touch) : SY_DSYNC;
@@ -983,7 +1194,9 @@ static void de_draw_main(void)
         case DE_E2: de_pic_env(3); break;
         case DE_L1: de_pic_lfo(0); break;
         case DE_L2: de_pic_lfo(1); break;
-        case DE_DELAY: de_pic_delay(); break;
+        case DE_DELAY: case DE_DELAY2: de_pic_delay(); break;
+        case DE_MASTER: de_pic_master(); break;
+        case DE_EQ: de_pic_eq(); break;
         default: de_pic_reverb(); break;
         }
         /* the extra controls: ALGORITHM, PRESETS (and the Delay's SELECT), on one line */
@@ -1051,6 +1264,23 @@ static void de_draw_main(void)
             cv_rect(x, y + 16, 12, 2, DE_OR);        /* (the step page the keys edit) */
         if (de.edit && i == de.step)
             cv_rect(x, y - 4, 12, 2, DE_FG);
+        if (en_seq[i].on && (en_seq[i].lock[0] | en_seq[i].lock[1] | en_seq[i].lock[2]))   /* (a locked step: a mark) */
+            cv_rect(x + 8, y + 2, 2, 2, DE_BG);
+    }
+    if (held) {                                  /* the step held: its locks, on ALGORITHM, PRESETS and SELECT */
+        static const char *const N[EN_NLK] = {"ALG LEVEL", "PRE CUTOFF", "SEL DELAY"};
+        en_step_t t;
+        de_step_get(de.step, &t);
+        for (i = 0; i < EN_NLK; i++) {
+            const int x = 8 + i * 78;
+            cv_text(x, DE_MAIN - 30, &FONT_T_XS, N[i], DE_DIM);
+            b[0] = 0;
+            if (t.lock[i])
+                de_num(b, t.lock[i] - 1);
+            else
+                de_cat(b, "FREE");
+            cv_text(x, DE_MAIN - 17, &FONT_T_B, b, t.lock[i] ? DE_OR : DE_LINE);
+        }
     }
     cv_blit(0, DE_HDR);
 }
@@ -1061,8 +1291,8 @@ static int de_bar_frac(int id, int *bip)         /* a control's place in its ran
     *bip = 0;
     if (id < 0)
         return 0;
-    lo = SYN_INFO[id].lo, hi = SYN_INFO[id].hi;
-    v = en_syn[id];
+    de_param_range(id, &lo, &hi);
+    v = de_param_get(id);
     if (lo < 0 && hi > 0) {
         *bip = 1;
         return v * 1000 / (v < 0 ? -lo : hi);
@@ -1142,7 +1372,7 @@ static void de_leds(void)
         b |= 1u << B_REC;
     if (en_metro_on)
         b |= 1u << B_SEL;
-    b |= 1u << (de.page == DE_PLAY ? B_HOME : de.page == DE_PATTERN ? B_SEQ : de.page >= DE_DELAY ? B_FX
+    b |= 1u << (de.page == DE_PLAY ? B_HOME : de.page == DE_PATTERN ? B_SEQ : de.page >= DE_MASTER ? B_GLO : de.page >= DE_DELAY ? B_FX
                : de.page == DE_L1 || de.page == DE_L2 ? B_LFO : B_ENV);
     if (de.edit) {                               /* the white keys: the step page's steps, the playhead blinking */
         for (i = 0; i < 16; i++) {
