@@ -147,6 +147,14 @@ static void de_chord_name(const en_step_t *st, char *b)   /* "Cm", "Ddim", "Eb" 
 }
 static int de_nsteps(void) { return en_seq_len; }
 static int de_spages(void) { return (de_nsteps() + 15) / 16; }
+static void de_spage_set(int p)                  /* step edit's page of 16 steps, and "STEPS 17 TO 32" */
+{
+    static const char *const T[4] = {"STEPS 1 TO 16", "STEPS 17 TO 32", "STEPS 33 TO 48", "STEPS 49 TO 64"};
+    const int n = de_spages();
+    p = p < 0 ? 0 : p >= n ? n - 1 : p;
+    de.spage = (uint8_t)p;
+    de_say(T[p & 3]);
+}
 
 /* ---------------------------------------------------------------- saving --- */
 /* The pattern and the sound, kept in flash (OBJ_DE, storage.c: A/B copies, a torn write leaves the last one). The key and
@@ -285,7 +293,7 @@ static void de_button(int b)                    /* a press */
         const int up = b == B_OCTUP;
         if (de.edit) {
             const int n = de_spages();
-            de.spage = (uint8_t)((de.spage + (up ? 1 : n - 1)) % n);
+            de_spage_set((de.spage + (up ? 1 : n - 1)) % n);
         } else if (up ? de.oct < 2 : de.oct > 0) {
             de.oct = (uint8_t)(de.oct + (up ? 1 : -1));
         }
@@ -527,6 +535,8 @@ static void de_input(void)
     }
     {   /* ALGORITHM and PRESETS: on Env 1, Env 2 the target and the depth; on the LFOs the sync */
         const int32_t da = plat_enc(EN_ALGO), dp = plat_enc(EN_PRESET);
+        if (!de_sound_page(de.page) && de.edit && de.step < 0 && da)   /* (Play, Pattern, step edit: the page of steps) */
+            de_spage_set(de.spage + (da > 0 ? 1 : -1)), de.act_t = now;
         if (de_sound_page(de.page) && !(de.edit && de.step >= 0)) {
             if (da)
                 de_param_turn(de_kid(de.page, 4), (int)da), de.act_t = de.touch_t = now, de.touch = 4;
@@ -1118,6 +1128,8 @@ static void de_autosave(void)                    /* the pattern, the sound, the 
 
 static void de_frame(void)
 {
+    if (de.spage >= de_spages())                /* (the pattern made shorter) */
+        de.spage = (uint8_t)(de_spages() - 1);
     de_input();
     de_autosave();
     de_draw_header();

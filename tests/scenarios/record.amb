@@ -79,6 +79,24 @@ wait 1700
 release SEQ
 wait 100
 expect seqon 2
+# 32 steps; ALGORITHM turns the page: the first white key is step 17
+tap SEQ
+wait 100
+spin K1 16
+wait 100
+expect seqlen 32
+turn ALGO 1
+wait 100
+tapkey w0
+wait 100
+expect seqdeg16 3
+expect seqon 3
+shot steppage2.png
+turn ALGO -1
+wait 100
+tapkey w0
+wait 100
+expect seqon 4
 tap REC
 wait 100
 wavstop

@@ -57,14 +57,14 @@ Works from the stock firmware or DUB 1. Your saved pattern and sound live in the
 | LFO | LFO 1, LFO 2. |
 | FX | Delay, Reverb, Reverb 2, in turn. |
 | GLO | Hold: save now. Saving also happens by itself after 3 s stopped. |
-| OCT− OCT+ | The keys' octave. In step edit: the page of 16 steps. |
+| OCT− OCT+ | The keys' octave. In step edit: the next or previous 16 steps. |
 
 ### Pages
 
 | Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 | ALGORITHM | PRESETS |
 | --- | --- | --- | --- | --- | --- | --- |
-| Play | Tempo | Root | Mode | Voicing | | |
-| Pattern | Length | Step | Click level | | | |
+| Play | Tempo | Root | Mode | Voicing | Step edit: steps 1 to 16, 17 to 32... | |
+| Pattern | Length | Step | Click level | | Step edit: steps 1 to 16, 17 to 32... | |
 | Osc | Wave | Fold | Detune | Level | | |
 | Filter | Cutoff | Reso | Env amount | Key track | | |
 | Amp env | Attack | Decay | Sustain | Release | | |
@@ -81,9 +81,10 @@ Works from the stock firmware or DUB 1. Your saved pattern and sound live in the
 
 ### Step edit
 1. Stop, then press **REC**. The 16 white keys are the steps.
-2. Tap a step: add your last chord, or remove it.
-3. Hold a step and turn: KNOB 1 chord, KNOB 2 voicing, KNOB 3 octave, KNOB 4 length.
-4. **REC** again to leave.
+2. Longer than 16 steps: turn **ALGORITHM** (or press OCT− OCT+) for the next 16. The underline shows which row the keys edit.
+3. Tap a step: add your last chord, or remove it.
+4. Hold a step and turn: KNOB 1 chord, KNOB 2 voicing, KNOB 3 octave, KNOB 4 length.
+5. **REC** again to leave.
 
 ### The screen
 * **Header:** the page, the key, play and record, the metronome, the tempo.

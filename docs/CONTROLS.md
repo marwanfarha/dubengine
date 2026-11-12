@@ -75,7 +75,7 @@ MASTER is volume. SELECT is only used on the Delay page so far.
   * KNOB 3: octave (−2 to +1)
   * KNOB 4: length in steps
 * Black keys do nothing in step edit.
-* OCT− / OCT+ move between step pages when the pattern is longer than 16.
+* ALGORITHM (or OCT− / OCT+) moves between step pages when the pattern is longer than 16. The underline shows the row the keys edit.
 
 ## Screen
 
