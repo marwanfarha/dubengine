@@ -1,0 +1,214 @@
+# the Noise page (SAVE: a tap, the page; again, it stays): Density (the groove's hits, 0..100: 0 none), Air (the hiss under it, 0..100: 0 none), Tone
+# (-50..+50 around the piece's own) and Decay (how long the hits ring; the level on OCT-/OCT+, Drift the recipes'), ALGORITHM its character (Vinyl, Tape, Dust, Room, Machine); the spectrum in the middle; SAVE held nudges it,
+# held on shakes it (another character); kept by the piece; (1.4.0) on the Noise LFO page ALGORITHM the LFO's Destination; saving on GLO held and Setup's KNOB 4; a 1.2.0 project
+# (format 10) read, the noise from the recipes
+listen
+wait 2000
+tap SAVE
+wait 400
+expect view 19
+said Noise page, character Vinyl: Density 56, Vary 0
+shot noise.png
+spin K1 -56
+wait 300
+said Density 0
+expect par107 0
+spin K1 10
+wait 300
+said Density 10
+expect par107 10
+spin K2 20
+wait 300
+said Vary 18
+expect par138 18
+spin K2 -20
+wait 300
+# SAVE again: the Noise voice (1.4.0, the user's: its part, then its voice): Air, Tone, Decay, Width (from the Noise
+# space page, gone: its sends the noise's channel strip)
+tap SAVE
+wait 400
+expect view 25
+said Noise voice page, character Vinyl: Air 66, Tone 0, Decay 50, Width 50
+shot noise_voice.png
+spin K2 22
+wait 300
+said Tone +20
+expect par106 20
+spin K3 -15
+wait 300
+said Decay 35
+expect par120 35
+spin K1 -7
+wait 300
+said Air 59
+expect par108 59
+turn ALGO 1
+wait 300
+said NOISE Tape
+expect par110 1
+wait 3000
+expect peak_db_max -0.5
+tap SAVE
+wait 400
+expect view 23
+said Noise LFO page, destination Filter: Drift 5, Wave 56, Rate 4 bars, Target Filter
+spin K3 9
+wait 300
+expect par128 5
+said Rate 32 bars
+spin K3 -3
+wait 300
+expect par128 2
+# (1.4.0, the user's) ALGORITHM here: the LFO's Destination (Filter, Tone, Air), round; the character left be
+turn ALGO 1
+wait 300
+said DESTINATION Tone
+expect par157 1
+turn ALGO 1
+wait 300
+said DESTINATION Air
+expect par157 2
+shot nlfo_dest.png
+turn ALGO 1
+wait 300
+said DESTINATION Filter
+expect par157 0
+expect par110 1
+tap SAVE
+wait 300
+expect view 19
+tap HOME
+wait 300
+expect view 0
+# Fog's recipe: Tape, a darker, roomier, more restless noise
+turn PRESET 3
+wait 500
+expect par110 1
+expect par106 -13
+expect par109 10
+# SAVE held: a nudge to the noise; held on, a shake (another character); ARP's touch only the pings
+press SAVE
+wait 700
+release SAVE
+wait 300
+said NOISE NUDGE
+expect view !=0
+press SAVE
+wait 1800
+release SAVE
+wait 300
+said NOISE SHAKE
+expect par110 !=1
+tap HOME
+wait 300
+press ARP
+wait 700
+release ARP
+wait 300
+said PINGS NUDGE
+said_none NOISE
+# kept by a save (GLO held); Setup's KNOB 4 saves too
+turn PRESET -3
+wait 500
+expect par110 1
+expect par106 20
+press GLO
+wait 600
+release GLO
+reboot
+wait 1000
+expect format 36
+expect par110 1
+expect par106 20
+# a 1.2.0 project (format 10): read, everything kept (Basic's chord level, set to 50 here), the noise from the
+# recipes (Basic's: Vinyl, 0; Fog's: Tape)
+tap SEL
+key w0 down
+spin K1 -100
+spin K1 50
+key w0 up
+tap SEL
+expect par0 50
+store10
+reboot
+wait 1000
+expect format 36
+expect par111 70
+expect par113 100
+expect par0 50
+expect par110 0
+expect par106 0
+turn PRESET 3
+wait 500
+expect par110 1
+expect par106 -13
+# Setup's KNOB 4: Save, a turn saves (Saved once done)
+tap GLO
+wait 300
+expect view 6
+spin K2 1
+wait 300
+expect dirty 1
+spin K4 1
+wait 300
+said SAVED
+expect dirty 0
+# a 1.3.0 echo-and-density project (format 14): kept, the Noise page's second and the hats' length from the recipes
+# (the noise's Width on the Noise voice's KNOB 4 now)
+tap SAVE
+tap SAVE
+wait 300
+expect view 25
+spin K4 10
+wait 300
+expect par121 95
+store14
+reboot
+wait 1000
+expect format 36
+expect par121 85
+expect par124 0
+# a 1.3.0 Noise space project (format 15): kept, the noise's LFO from the recipe (Fog's 0: its drift 35)
+tap SAVE
+tap SAVE
+wait 300
+expect view 25
+spin K4 10
+wait 300
+expect par121 95
+store15
+reboot
+wait 1000
+expect format 36
+expect par121 95
+expect par125 0
+# a 1.3.0 noise-LFO project (format 16): kept, the kick's rumble from the recipe (Fog's 62)
+store16
+reboot
+wait 1000
+expect format 36
+expect par121 95
+expect par126 62
+# (from 16: the noise's LFO as it was, Fog's 0)
+expect par125 0
+# a 1.4.0 test build's project (format 18): kept, the LFOs' rates from the recipe (Fog's: 32 bars since the variety study, its drifts its own),
+# the noise's LFO as it was (format 30: its Depth 0 and Drift 50 on Drift 72 the page's Drift -15, its Wave 0: the wander alone)
+tap SAVE
+tap SAVE
+tap SAVE
+wait 300
+expect view 23
+spin K3 -3
+wait 300
+expect par167 -15
+expect par128 0
+store18
+reboot
+wait 1000
+expect format 36
+expect par121 95
+expect par125 0
+expect par167 -15
+expect par130 0
+expect par127 5
+expect par128 2

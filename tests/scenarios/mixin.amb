@@ -1,0 +1,100 @@
+# (1.4.0) a Set's hand-over into a piece whose Intro is None (it starts in its main): a Mix enters it as it enters a
+# piece with an intro, the kick on the downbeat, the noise from it, the bass a bar on, the chord, the pings and the
+# hats two, each fader rising to full, none full at once and dipping under the ramp (as they did: 1.0 on the downbeat,
+# 0.0 two bars on, 1.0 again at four); then its main. A Segue's: the piece whole from its downbeat, as PLAY has it
+listen
+wait 1500
+tap GLO
+wait 200
+tap GLO
+wait 400
+expect view 28
+spin K1 2
+wait 300
+expect par158 2
+spin K2 2
+wait 300
+expect trans 2
+# three short songs: the sixth piece (Intro None), the seventh (Intro None), the eighth (Intro 16 bars)
+turn PRESET 7
+wait 600
+expect piece 7
+tap HOME
+wait 200
+tap HOME
+wait 300
+spin K1 -10
+spin K1 2
+spin K2 -16
+spin K3 -2
+wait 300
+expect par159 2
+turn PRESET -1
+wait 600
+expect piece 6
+spin K1 -10
+spin K2 -16
+spin K3 -2
+wait 300
+expect par159 0
+turn PRESET -1
+wait 600
+expect piece 5
+spin K1 -10
+spin K2 -16
+spin K3 -2
+wait 300
+expect par159 0
+tap PLAY
+wait 500
+tap PLAY
+wait 300
+trwatch
+# the sixth's outro's last bar about 94 s on (48 bars at 126); the seventh's first 8 bars (16 s at 120)
+wait 112000
+expect piece 6
+expect song 2
+expect trrestarts 1
+expect trdip 0
+expect trjump <10
+expect trkick <2
+expect trbass >15
+expect trchord >31
+expect trquiet <2000
+# (step 5b's path: the held echo's repeats of a stab thrown before the end, a dotted 8th apart, read 81-85)
+expect trclick <110
+# the seventh (48 bars at 120, 96 s) into the eighth, its intro: the same entry
+wait 96000
+expect piece 7
+expect song 1
+expect trrestarts 2
+expect trdip 0
+expect trjump <10
+expect trkick <2
+expect trbass >15
+expect trchord >31
+# a Segue into Intro None: no dip, the parts whole from the downbeat
+tap PLAY
+wait 500
+expect playing 0
+tap GLO
+wait 200
+tap GLO
+wait 300
+spin K2 -1
+wait 300
+expect trans 1
+turn PRESET -2
+wait 600
+expect piece 5
+tap PLAY
+wait 300
+trwatch
+wait 112000
+expect piece 6
+expect song 2
+expect trrestarts 1
+expect trdip 0
+expect trjump >990
+expect trquiet <2000
+expect trclick <80

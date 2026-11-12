@@ -1,0 +1,269 @@
+# the manual's screenshots (docs/img/, but the launch screen): build/host/amb_host tests/listen/shots.amb build/shots
+wait 9000
+shot screen-main.png
+press ENV
+wait 700
+shot screen-nudge.png
+release ENV
+wait 300
+tap HOME
+wait 300
+turn ALGO 1
+wait 2000
+shot screen-scope.png
+turn ALGO 1
+wait 2000
+shot screen-spectrum.png
+# (1.4.0: the echo trail and the fifths gone; their time kept, so the shots after them are as they were)
+wait 4000
+turn ALGO 1
+wait 2000
+shot screen-tape.png
+turn ALGO 1
+wait 300
+tap HOME
+wait 1500
+shot screen-song.png
+tap HOME
+wait 1500
+shot screen-key.png
+tap HOME
+wait 300
+tap ENV
+wait 1500
+shot screen-chord.png
+tap ARP
+wait 1500
+shot screen-pings.png
+# (1.4.0, the user's: the layers' pages) each its part, then its voice: the Pings voice (ARP again); the Noise voice
+# (SAVE again; its Width there now, the Noise space page gone); the Bass FM page on Sub, its Bite alone (LFO a third time); the Kick and the Hats pages (SEQ again, again)
+tap ARP
+wait 1500
+shot screen-pings-voice.png
+tap SAVE
+wait 1500
+shot screen-noise.png
+tap SAVE
+wait 1500
+shot screen-noise-voice.png
+tap SAVE
+tap LFO
+wait 1500
+shot screen-bass.png
+tap LFO
+tap LFO
+wait 1500
+shot screen-bass-fm.png
+tap SEQ
+wait 1500
+shot screen-drums.png
+tap SEQ
+wait 1500
+shot screen-kick.png
+tap SEQ
+wait 1500
+shot screen-hats.png
+tap GLO
+wait 1500
+shot screen-setup.png
+tap GLO
+wait 300
+spin K1 2
+wait 300
+spin K2 2
+wait 1498
+shot screen-song-mode.png
+spin K2 -2
+spin K1 -2
+wait 300
+tap FX
+wait 1500
+shot screen-space.png
+turn K3 3
+wait 300
+shot screen-turning.png
+turn K3 -3
+tap HOME
+wait 1500
+tap REC
+wait 2500
+shot screen-hold.png
+tap REC
+# (1.4.0) the Arrangement page (SEL): the meters, Duck up (the GR pumping); then a mute (the pings) and a solo (the bass)
+tap SEL
+spin K4 30
+wait 18000
+shot screen-perform.png
+tapkey w1
+tapkey b2
+wait 2500
+shot screen-arrangement-solo.png
+tapkey b2
+tapkey w1
+# (1.4.0, the user's) a channel strip: white 1 held, the chord's; its Echo turned (the big ring names it); then its
+# Filter to the left, a low-pass (1.4.0, format 28, KellyOffski's)
+wait 1500
+key w0 down
+wait 600
+spin K2 10
+wait 300
+shot screen-strip.png
+spin K2 -10
+spin K4 -24
+wait 300
+shot screen-strip-filter.png
+spin K4 30
+key w0 up
+# (1.4.0, the user's: the kick and the hats apart, the noise its own key) the Kick, the Hats and the Noise strips
+wait 1500
+key w3 down
+wait 600
+spin K4 20
+wait 300
+shot screen-strip-kick.png
+spin K4 -20
+key w3 up
+wait 1500
+key w4 down
+wait 600
+spin K2 10
+wait 300
+shot screen-strip-hats.png
+spin K2 -10
+key w4 up
+wait 1500
+key w5 down
+wait 600
+spin K3 10
+wait 300
+shot screen-strip-noise.png
+spin K3 -10
+key w5 up
+# (1.4.0, the user's: the dub mixer) its rides up to 100 (format 30: Form's Drift, HOME's KNOB 4), a minute riding:
+# the notches where the rides have the levels; then the chord's strip held, its knobs showing the ride
+tap HOME
+wait 300
+spin K4 59
+wait 300
+tap SEL
+wait 60000
+shot screen-mixer.png
+key w0 down
+wait 600
+shot screen-strip-ride.png
+key w0 up
+tap HOME
+wait 300
+spin K4 -50
+wait 300
+tap SEL
+wait 1500
+spin K4 -30
+tap HOME
+# (format 35, step 5b: Basic's Drift 50, back to it from the mixer's 100) a Groove: Motion 57 from Basic's 12, one
+# playing at 252 s
+turn K3 45
+wait 252000
+expect section 2
+shot screen-groove.png
+# the Echo page (FX, FX again)
+tap FX
+wait 300
+tap FX
+wait 1500
+shot screen-echo.png
+tap FX
+# Lock (SEL held): its card, "lock" in red above the page's name
+tap HOME
+wait 300
+press SEL
+wait 700
+release SEL
+wait 300
+shot screen-lock.png
+press SEL
+wait 700
+release SEL
+# (1.4.0) the Chord LFO page (ENV a fifth time, format 36: after the Chord filter page): deeper, its path filled (16 bars)
+tap ENV
+tap ENV
+tap ENV
+tap ENV
+tap ENV
+wait 300
+spin K1 35
+wait 40000
+shot screen-chord-lfo.png
+# (1.4.0, the user's: the Chord's pages) ALGORITHM there: the Destination, Reso, its big ring; then the Chord voice page
+# (ENV again from Chord), then the Chord filter page, Reso moving on its knob; the Chord FM page, Saws not FM, its Colour alone
+turn ALGO 1
+wait 300
+shot screen-chord-lfo-dest.png
+wait 1500
+tap ENV
+tap ENV
+wait 3000
+shot screen-chord-voice.png
+# (format 36, the user's) the Chord filter page (ENV a third time): Reso moving on its knob, the stab's filter drawn
+tap ENV
+wait 3000
+shot screen-chord-filter.png
+tap ENV
+wait 1500
+shot screen-chord-fm.png
+tap ENV
+wait 300
+turn ALGO 2
+wait 300
+spin K1 -35
+tap HOME
+# (1.4.0, the user's) the Noise LFO page (SAVE a third time): ALGORITHM there its Destination, Air, its big ring
+tap SAVE
+tap SAVE
+tap SAVE
+wait 300
+turn ALGO 2
+wait 300
+shot screen-noise-lfo-dest.png
+turn ALGO 1
+wait 300
+tap HOME
+# (1.4.0, the user's: song structure) a song's intro on the Form page: INTRO top left, the song line under the bar
+# cells; then Endless again
+tap GLO
+tap GLO
+wait 300
+spin K1 1
+wait 300
+tap HOME
+wait 300
+tap PLAY
+wait 600
+tap PLAY
+wait 16000
+shot screen-song-intro.png
+tap GLO
+tap GLO
+wait 300
+spin K1 -1
+wait 300
+tap HOME
+# (1.4.0) the Walk page: EDIT, EDIT again
+tap HOME
+wait 300
+tap EDIT
+wait 300
+shot screen-chords.png
+tap EDIT
+wait 2500
+shot screen-walk.png
+# (format 31, the variety plan's step 3) Motion's zones: the Form page's KNOB 3 turned into Sections, the big ring in
+# segments, the zones' names round it, the zone's under the value, its sentence under the ring
+tap HOME
+wait 300
+expect view 0
+spin K3 -100
+spin K3 55
+wait 300
+expect par15 55
+shot screen-motion.png

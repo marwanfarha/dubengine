@@ -1,0 +1,104 @@
+# the Form page's middle: ALGORITHM goes ripples, scope, spectrum (1.4.0: then the tape; the echo trail and the
+# fifths gone, a save on one back on the ripples), ripples; it is said, and kept by SAVE
+wait 4000
+listen
+shot ripples.png
+turn ALGO 1
+wait 1500
+expect view 0
+expect screen 1
+said SCREEN SCOPE
+shot scope.png
+turn ALGO 1
+wait 1500
+expect screen 2
+said SCREEN SPECTRUM
+shot spectrum.png
+# HOME from another page comes back to the Form page, as it was
+tap ENV
+wait 200
+tap HOME
+wait 200
+expect view 0
+expect screen 2
+press GLO
+wait 600
+release GLO
+reboot
+wait 1500
+expect screen 2
+turn ALGO 1
+wait 1500
+expect screen 5
+said SCREEN TAPE
+shot tape.png
+turn ALGO 1
+wait 200
+expect screen 0
+turn ALGO -1
+wait 200
+expect screen 5
+turn ALGO -1
+wait 200
+expect screen 2
+turn ALGO 1
+wait 200
+turn ALGO 1
+wait 200
+expect screen 0
+# (1.4.0) a view gone (a build's echo trail, 3, or fifths, 4) comes back on the ripples; the tape kept (5)
+storescreen 3
+reboot
+wait 1500
+expect screen 0
+storescreen 4
+reboot
+wait 1500
+expect screen 0
+storescreen 5
+reboot
+wait 1500
+expect screen 5
+turn ALGO 1
+wait 200
+expect screen 0
+# HOME again: the Song page (1.4.0), again the Key page (the tempo, the root, the mode, swing), and again: back to Form
+tap HOME
+wait 200
+expect view 27
+said Song page, Endless: Intro 32 bars, Main 160 bars, Outro 32 bars, Kind Pulse
+tap HOME
+wait 200
+expect view 18
+said Key page: Tempo 122, Root F, Mode Dorian, Swing
+tap HOME
+wait 200
+expect view 0
+# each piece its own view: Basic on the spectrum, Chamber on the scope, kept through a change of piece and a reboot
+turn ALGO 2
+wait 200
+expect screen 2
+turn PRESET 1
+wait 300
+expect piece 1
+expect screen 0
+turn ALGO 1
+wait 200
+expect screen 1
+turn PRESET -1
+wait 300
+expect piece 0
+expect screen 2
+turn PRESET 1
+wait 300
+expect screen 1
+press GLO
+wait 600
+release GLO
+reboot
+wait 1500
+expect piece 1
+expect screen 1
+turn PRESET -1
+wait 300
+expect screen 2

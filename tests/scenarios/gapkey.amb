@@ -1,0 +1,155 @@
+# (1.4.0) the Chords page: a key on a gap writes a Minor on that key's root (an F on Concrete came out a Bb: the
+# root set first read as the walk's degree, and the kind's knob wrote that degree's chord over it); each of the 12
+# keys on a gap, its root and its kind; a key on the walk's slot: its kind and type kept, the root the key's
+listen
+wait 3000
+tap EDIT
+wait 400
+expect view 15
+turn K1 1
+wait 200
+said Slot 2
+spin K2 -100
+wait 200
+expect par73 0
+expect par65 0
+tapkey 0
+wait 200
+said Fm
+expect par65 5
+expect par73 2
+expect kbnote0 53
+expect kbheld 0
+spin K2 -100
+wait 200
+expect par73 0
+expect par65 0
+tapkey 1
+wait 200
+said F#m
+expect par65 6
+expect par73 2
+expect kbnote0 54
+expect kbheld 0
+spin K2 -100
+wait 200
+expect par73 0
+expect par65 0
+tapkey 2
+wait 200
+said Gm
+expect par65 7
+expect par73 2
+expect kbnote0 55
+expect kbheld 0
+spin K2 -100
+wait 200
+expect par73 0
+expect par65 0
+tapkey 3
+wait 200
+said Abm
+expect par65 8
+expect par73 2
+expect kbnote0 56
+expect kbheld 0
+spin K2 -100
+wait 200
+expect par73 0
+expect par65 0
+tapkey 4
+wait 200
+said Am
+expect par65 9
+expect par73 2
+expect kbnote0 57
+expect kbheld 0
+spin K2 -100
+wait 200
+expect par73 0
+expect par65 0
+tapkey 5
+wait 200
+said Bbm
+expect par65 10
+expect par73 2
+expect kbnote0 58
+expect kbheld 0
+spin K2 -100
+wait 200
+expect par73 0
+expect par65 0
+tapkey 6
+wait 200
+said Bm
+expect par65 11
+expect par73 2
+expect kbnote0 59
+expect kbheld 0
+spin K2 -100
+wait 200
+expect par73 0
+expect par65 0
+tapkey 7
+wait 200
+said Cm
+expect par65 0
+expect par73 2
+expect kbnote0 48
+expect kbheld 0
+spin K2 -100
+wait 200
+expect par73 0
+expect par65 0
+tapkey 8
+wait 200
+said C#m
+expect par65 1
+expect par73 2
+expect kbnote0 49
+expect kbheld 0
+spin K2 -100
+wait 200
+expect par73 0
+expect par65 0
+tapkey 9
+wait 200
+said Dm
+expect par65 2
+expect par73 2
+expect kbnote0 50
+expect kbheld 0
+spin K2 -100
+wait 200
+expect par73 0
+expect par65 0
+tapkey 10
+wait 200
+said Ebm
+expect par65 3
+expect par73 2
+expect kbnote0 51
+expect kbheld 0
+spin K2 -100
+wait 200
+expect par73 0
+expect par65 0
+tapkey 11
+wait 200
+said Em
+expect par65 4
+expect par73 2
+expect kbnote0 52
+expect kbheld 0
+# slot 3, the walk's (its Cm7 in F Dorian): a key writes it, the root the key's, its kind and type kept (a Bb: Bbm7)
+turn K1 1
+wait 200
+said Slot 3
+expect par74 0
+expect par66 5
+tapkey 5
+wait 200
+said Bbm7
+expect par66 10
+expect par74 2
+expect par82 2

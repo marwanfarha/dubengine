@@ -1,0 +1,24 @@
+# (1.4.1) PRESETS spun fast, playing: each click sends a whole piece to the engine, which takes one over ~7 blocks, so
+# four clicks or more filled its queue and the piece arrived at lost its last commands, playing partly as the pieces
+# passed through while the screen showed its own (the 1.4.0 shorts' takes: Concrete's LFO at Fog's 32 bars). The UI
+# now sends the piece again once the queue has room: the engine and the screen agree
+listen
+wait 3000
+expect endiff 0
+turn PRESET 4 5
+wait 3000
+expect piece 4
+expect qdrops >0
+expect endiff 0
+turn PRESET 3 5
+wait 3000
+expect piece 7
+expect endiff 0
+turn PRESET -7 5
+wait 3000
+expect piece 0
+expect endiff 0
+turn PRESET 1 400
+wait 2000
+expect piece 1
+expect endiff 0

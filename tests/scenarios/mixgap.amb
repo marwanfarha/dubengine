@@ -1,0 +1,164 @@
+# (1.4.2, the user's: "too much lag between the end of one piece and the start of the next"; build/design/REPORT-mixgap.txt)
+# A Set's hand-over without a hole: the music never more than 12 LU under its main for longer than about a bar
+# (trhole, ms: the longest stretch of the momentary loudness, K-weighted, under the main's 16 s before the outro by 12
+# LU, from the outro to the next piece's bar 8); the short-term loudness there never far under it (trlow, LU x10) nor
+# over it (trswell: Fog's held echo swelled 12 LU over its main). Before the fix: Concrete into Night Drive trhole 2100,
+# trlow -154; Fog into Concrete trswell 121; the outro called in Pressure's intro (the Songs sheet's take) trhole
+# 25100, its hand-over 76 s after PLAY; Pressure into Haze, Segue, trhole 3800
+listen
+wait 1500
+tap PLAY
+wait 1500
+# 1. short 61: Concrete (136; Intro None, Main 32 bars, Outro 16) into Night Drive (120), Mix
+turn PRESET 4 5
+wait 800
+expect piece 4
+tap GLO
+wait 300
+tap GLO
+wait 300
+expect view 28
+spin K1 2
+wait 300
+spin K2 2
+wait 300
+expect par158 2
+expect trans 2
+tap HOME
+wait 300
+tap HOME
+wait 300
+expect view 27
+spin K1 -16
+spin K2 -16
+spin K3 -2
+wait 300
+expect par159 0
+expect par160 4
+expect par161 2
+tap PLAY
+wait 300
+trwatch
+# the downbeat at about 86 s, Night Drive's bar 8 at 102
+wait 104000
+expect piece 5
+expect trrestarts 1
+expect trhole <2100
+expect trlow >-120
+expect trswell <60
+expect trkick <2
+# (Night Drive from its second phrase: its bass at 6.4 bars, not 14.5; its kick one and three from the downbeat)
+expect trbass >15
+expect trbass <130
+expect trchord >31
+expect trdip 0
+expect trjump <10
+# (Concrete's stab struck two bars before the end reads 211 here, before the fix as after: its own sharp edge)
+expect trclick <250
+tap PLAY
+wait 500
+expect playing 0
+# 2. Fog (120; the same lengths) into Concrete (136), Mix: its held echo no longer swells over the music
+turn PRESET -2
+wait 800
+expect piece 3
+tap GLO
+wait 300
+tap GLO
+wait 300
+expect view 28
+tap HOME
+wait 300
+tap HOME
+wait 300
+expect view 27
+spin K1 -16
+spin K2 -16
+spin K3 -2
+wait 300
+expect par159 0
+expect par160 4
+expect par161 2
+tap PLAY
+wait 300
+trwatch
+wait 111000
+expect piece 4
+expect trrestarts 1
+expect trswell <60
+expect trhole <2100
+expect trlow >-120
+expect trclick <80
+tap PLAY
+wait 500
+expect playing 0
+# 3. the Songs sheet's take: Pressure as it is (Intro 32 bars, Main 160, Outro 32), the outro called in its intro's
+# bar 3, when only the kick and the bass are in: the outro as long as the intro had been (8 bars, from bar 8), the
+# kick to the end, the chord thrown into the held echo all the same; Haze's downbeat at bar 16 (about 31 s), not 76 s
+turn PRESET 2
+wait 800
+expect piece 6
+expect par159 4
+expect par161 4
+tap PLAY
+wait 300
+trwatch
+wait 5000
+press HOME
+wait 300
+tap PLAY
+wait 300
+release HOME
+wait 22000
+expect piece 6
+wait 6000
+expect piece 7
+expect playing 1
+expect trrestarts 1
+wait 15000
+expect trhole <2100
+expect trlow >-130
+expect trkick <2
+tap PLAY
+wait 500
+expect playing 0
+# 4. Segue: Pressure (Intro None, Main 32, Outro 16) into Haze: the kick to the end, the echo held a bar longer over
+# Haze's bare start (its intro from the top, as a Segue has it: by its bar 5 its own dark wash, 15-25 LU under the main)
+tap GLO
+wait 300
+tap GLO
+wait 300
+expect view 28
+spin K2 -1
+wait 300
+expect trans 1
+turn PRESET -1
+wait 800
+expect piece 6
+tap GLO
+wait 300
+tap GLO
+wait 300
+expect view 28
+tap HOME
+wait 300
+tap HOME
+wait 300
+expect view 27
+spin K1 -16
+spin K2 -16
+spin K3 -2
+wait 300
+expect par159 0
+expect par160 4
+expect par161 2
+tap PLAY
+wait 300
+trwatch
+wait 111000
+expect piece 7
+expect trrestarts 1
+expect trhole <2500
+expect trlow >-170
+expect trquiet <2000
+expect trclick <80

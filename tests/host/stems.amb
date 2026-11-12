@@ -1,0 +1,20 @@
+# the stems (tests/host/stems_test.sh): a short film over the pages, HOME's views, a layer's page, the Arrangement
+# page, with every stem and without; the film and the WAV the same, every stem the film's frames
+wait 3000
+wav stems.wav
+film stems.film
+wait 600
+turn ALGO 1
+wait 500
+turn ALGO 1
+wait 500
+tap ENV
+wait 500
+tap SEL
+key b0 down
+wait 400
+key b0 up
+tap HOME
+wait 500
+filmstop
+wavstop

@@ -1,0 +1,70 @@
+# (1.4.0) the centred knobs' notch at 0 (Off): two clicks held back, one way, within 3 s of each other (it was 700
+# ms: a slow ride, a click a second, never left Off); a stray click, or clicks 4 s apart, stay at 0; a click the
+# other way starts the count again. SELECT's DJ filter, then a strip's Filter
+listen
+wait 2000
+expect filter 0
+turn SELECT 1 1000
+expect filter 0
+turn SELECT 1 1000
+expect filter 0
+turn SELECT 1 1000
+expect filter 1
+turn SELECT -1 100
+expect filter 0
+wait 3500
+turn SELECT 1 4000
+expect filter 0
+turn SELECT 1 4000
+expect filter 0
+turn SELECT 1 4000
+expect filter 0
+turn SELECT -1 1000
+expect filter 0
+turn SELECT 1 1000
+expect filter 0
+turn SELECT 1 1000
+expect filter 0
+turn SELECT 1 1000
+expect filter 1
+turn SELECT -1 100
+expect filter 0
+wait 3500
+turn SELECT -1 1000
+turn SELECT -1 1000
+expect filter 0
+turn SELECT -1 1000
+expect filter -1
+turn SELECT 1 100
+expect filter 0
+# the chord's strip (SEL, white 1 held): its Filter, KNOB 4
+tap SEL
+wait 300
+expect view 17
+key w0 down
+wait 700
+expect view 26
+expect par148 0
+turn K4 1 1000
+expect par148 0
+turn K4 1 1000
+expect par148 0
+turn K4 1 1000
+expect par148 1
+turn K4 -1 100
+expect par148 0
+wait 3500
+turn K4 -1 4000
+expect par148 0
+turn K4 -1 4000
+expect par148 0
+turn K4 -1 4000
+expect par148 0
+turn K4 -1 1000
+turn K4 -1 1000
+expect par148 0
+turn K4 -1 1000
+expect par148 <0
+key w0 up
+wait 300
+expect view 17

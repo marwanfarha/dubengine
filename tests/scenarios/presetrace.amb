@@ -1,0 +1,76 @@
+# (1.4.0) PRESET spun fast: a piece's chord slots stay its own. The engine takes a piece over a few blocks and
+# publishes its slots as it goes; the UI took them into whichever piece it was on by then, so a piece passed through
+# kept the last one's (the Winter Set's Snowfield held Aurora's GM7). Chamber's first four written (Fm, Gm, Am, Bbm),
+# then PRESET spun 0 -> 4 -> 0 at 5, 10 and 20 ms a click: Basic keeps its walk, Chamber its four
+listen
+wait 3000
+expect piece 0
+turn PRESET 1 300
+wait 800
+expect piece 1
+tap EDIT
+wait 400
+expect view 15
+spin K2 -100
+wait 200
+tapkey 0
+wait 200
+turn K1 1
+wait 200
+spin K2 -100
+wait 200
+tapkey 2
+wait 200
+turn K1 1
+wait 200
+spin K2 -100
+wait 200
+tapkey 4
+wait 200
+turn K1 1
+wait 200
+spin K2 -100
+wait 200
+tapkey 5
+wait 200
+expect par72 2
+expect par73 2
+expect par74 2
+expect par75 2
+tap HOME
+wait 300
+turn PRESET -1 300
+wait 800
+expect piece 0
+expect par72 0
+expect par73 0
+turn PRESET 4 5
+wait 800
+turn PRESET -4 5
+wait 800
+turn PRESET 4 10
+wait 800
+turn PRESET -4 10
+wait 800
+turn PRESET 4 20
+wait 800
+turn PRESET -4 20
+wait 800
+expect piece 0
+expect par72 0
+expect par73 0
+expect par74 0
+expect par75 0
+turn PRESET 1 300
+wait 800
+expect piece 1
+expect par64 5
+expect par72 2
+expect par73 2
+expect par74 2
+expect par75 2
+turn PRESET 1 300
+wait 800
+expect piece 2
+expect par72 0
+expect par73 0

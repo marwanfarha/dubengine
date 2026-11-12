@@ -1,0 +1,170 @@
+# (1.4.0, the user's: build/design/SET2.md, Transition) a Set's hand-over, the Song mode page's KNOB 2 (LP, Segue, Mix;
+# Set mode alone: grey and resting otherwise; global, saved, format 33; a format 32 save reads LP). Values on KNOB 4.
+# Segue: no stop, the next piece from the bar after the outro, the echo held under it; Mix: over the last phrase the
+# tempo glides to the next piece's, its pulse on the downbeat, its chord no sooner than two bars; after the last piece
+# it rests. Each hand-over watched: no stretch under -60 dBFS longer than a bar, no step out of the music's level
+listen
+wait 1500
+expect trans 0
+tap GLO
+wait 200
+tap GLO
+wait 400
+expect view 28
+said Song mode page: Mode Endless, Transition LP, only in Set mode, Values Peek
+# Endless: Transition grey, a turn says why and changes nothing
+spin K2 1
+wait 300
+expect trans 0
+expect bigring 1
+spin K1 2
+wait 300
+expect par158 2
+said Mode Set
+spin K2 1
+wait 300
+said Transition Segue
+expect trans 1
+spin K2 1
+wait 300
+said Transition Mix
+expect trans 2
+spin K2 1
+wait 300
+expect trans 2
+spin K2 -1
+wait 300
+said Transition Segue
+expect trans 1
+expect helpfit 0
+# two short songs: Basic (no intro, Main 32 bars, Outro 16), then Chamber (Intro 16, Main 32, Outro 16)
+turn PRESET 1
+wait 600
+tap HOME
+wait 200
+tap HOME
+wait 300
+spin K1 -2
+spin K2 -16
+spin K3 -2
+wait 300
+turn PRESET -1
+wait 600
+spin K1 -4
+spin K2 -16
+spin K3 -2
+wait 300
+expect piece 0
+tap PLAY
+wait 500
+tap PLAY
+wait 300
+trwatch
+# Basic's outro at bar 32 (62.9 s at 122), its last bar 47 (92.5 s): the cue there, Chamber set under it
+wait 92000
+expect piece 0
+expect song 3
+wait 1500
+expect trcue 1
+expect piece 1
+expect playing 1
+wait 2500
+expect trcue 0
+expect piece 1
+expect playing 1
+expect song 1
+expect trrestarts 1
+expect bpm 128
+wait 10000
+expect playing 1
+expect trquiet <2000
+# (step 5's Basic: the stab thrown into the held echo has a sharp edge; its repeats, a dotted 8th apart, read 94-97)
+expect trclick <110
+# Mix: Pressure (126) to Haze (116), the same lengths; the last piece's end: it rests
+tap PLAY
+wait 500
+expect playing 0
+tap GLO
+wait 200
+tap GLO
+wait 300
+spin K2 1
+wait 300
+expect trans 2
+turn PRESET 6
+wait 600
+expect piece 7
+tap HOME
+wait 200
+tap HOME
+wait 300
+spin K1 -2
+spin K2 -16
+spin K3 -2
+wait 300
+turn PRESET -1
+wait 600
+expect piece 6
+spin K1 -4
+spin K2 -16
+spin K3 -2
+wait 300
+tap PLAY
+wait 300
+trwatch
+# bar 40 at 126: 76.2 s; the glide from bar 39 to 47, half way about bar 43 (81.9 s)
+wait 74000
+expect bpm 126
+wait 8000
+expect bpm >118
+expect bpm <124
+wait 8800
+expect bpm 116
+wait 3000
+expect piece 7
+expect playing 1
+expect trrestarts 1
+expect trkick <2
+expect trchord -1
+wait 8000
+expect trchord >31
+expect trquiet <2000
+expect trclick <80
+# (1.4.2: no hole, mixgap.amb: never 12 LU under the music for more than about a bar; no swell over it)
+expect trhole <2100
+expect trswell <60
+# Haze, the last: its song to its end (64 bars at 116), then it rests
+wait 130000
+expect piece 7
+expect playing 0
+# a Mix's glide under way, the outro called back (HOME held + PLAY): the piece's own tempo again
+turn PRESET -1
+wait 600
+expect piece 6
+tap PLAY
+wait 82000
+expect bpm <124
+press HOME
+tap PLAY
+release HOME
+wait 300
+said OUTRO OFF
+expect bpm 126
+expect song 2
+tap PLAY
+wait 500
+# kept by a save and a reboot; a format 32 save reads LP
+press GLO
+wait 700
+release GLO
+wait 300
+reboot
+wait 1000
+expect format 36
+expect trans 2
+store32
+reboot
+wait 1000
+expect format 36
+expect trans 0
+expect par158 2
