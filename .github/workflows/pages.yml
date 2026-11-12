@@ -18,6 +18,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-24.04
+    env:
+      AC79_SDK: /home/runner/fw-AC79_AIoT_SDK
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -37,9 +39,9 @@ jobs:
           pip install mido
           sudo apt-get install -y -qq xz-utils
           sh tools/get_toolchain.sh
-          git clone --depth 1 --branch AC79NN_SDK_V1.2.1_2023-12-13 https://gitee.com/Jieli-Tech/fw-AC79_AIoT_SDK.git ~/fw-AC79_AIoT_SDK
+          git clone --depth 1 --branch AC79NN_SDK_V1.2.1_2023-12-13 https://gitee.com/Jieli-Tech/fw-AC79_AIoT_SDK.git "$AC79_SDK"
       - name: Build the firmware release (VERSION)
-        run: AC79_SDK=$HOME/fw-AC79_AIoT_SDK ./build.sh --release "$(cat VERSION)"
+        run: ./build.sh --release "$(cat VERSION)"
       - name: The update path, on this very package
         run: |
           mkdir -p build/t
