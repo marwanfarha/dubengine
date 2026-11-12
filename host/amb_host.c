@@ -799,6 +799,8 @@ static int expect(const char *what, const char *val)
         got = en_metro_on;
     else if (!strncmp(what, "seqdeg", 6))       /* seqdegN: step N's degree (-1 empty) */
         got = en_seq[atoi(what + 6) % EN_SEQ_MAX].on ? en_seq[atoi(what + 6) % EN_SEQ_MAX].deg : -1;
+    else if (!strncmp(what, "syn", 3) && what[3] >= '0' && what[3] <= '9')   /* synN: the synth's parameter N (SY_*) */
+        got = en_syn[atoi(what + 3) % SY_N];
     else if (!strncmp(what, "steplen", 7))      /* steplenN: step N's length */
         got = en_seq[atoi(what + 7) % EN_SEQ_MAX].len;
     else if (!strcmp(what, "playing"))

@@ -15,7 +15,7 @@ Dub techno lives on chord stabs: one shape moved around a key, thrown into a tap
 5. **Let it move.** Randomise writes a new pattern in your key. Density, Variation, Length and Offbeat shape it, and Evolve lets it change by itself as it loops.
 6. **Sync it.** It runs on its own tempo, or follows the Digitakt's clock when they're connected.
 
-Every chord goes through a resonant filter, a tape echo and a plate reverb.
+Every chord comes from its own synth: two oscillators a voice (sine, triangle, saw or square), a wavefolder, a resonant filter, amp and filter envelopes, two more envelopes and two LFOs to modulate almost anything. Then a tape echo and a plate reverb.
 
 ## Where it is now
 
@@ -25,7 +25,8 @@ Every chord goes through a resonant filter, a tape echo and a plate reverb.
 | Saves work on both FM1 flash chips | Done |
 | Metronome, pattern length, step value, live recording | Done |
 | Step edit, step locks for chord, voicing, octave, length | Done |
-| Saving patterns | Next |
+| Synth: 4 waves, fold, filter, amp and filter envelopes, 2 mod envs, 2 LFOs | Done |
+| Saving patterns and sounds | Next |
 | Digitakt clock sync | Planned |
 | Randomise and Evolve | Planned |
 

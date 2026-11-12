@@ -24,8 +24,11 @@ How the FM1's controls work for picking a key, keeping time and recording chord 
 | **SEQ** held 1.5 s | Clear the pattern. The screen says CLEARED, and SEQ held again within 5 s brings it back. |
 | **GLO** held | Save. |
 | **OCT− / OCT+** | Outside step edit: the keys' octave. In step edit: the step page (1 to 16, 17 to 32, and so on). |
+| **ENV** | The sound pages in turn: Osc, Filter, Amp env, Filter env, Env 1, Env 2. |
+| **LFO** | LFO 1, LFO 2. |
+| **FX** | The sends and the echo. |
 
-The other buttons (FX, ENV, LFO, EDIT, SAVE, ARP) are left for the sound pages, Randomise and the FM pings later.
+EDIT, SAVE and ARP are left for Randomise and the FM pings later.
 
 ## Pages and knobs
 
@@ -34,7 +37,21 @@ The other buttons (FX, ENV, LFO, EDIT, SAVE, ARP) are left for the sound pages, 
 | **Play** (HOME) | Tempo | Root (wraps round) | Mode (Ionian to Aeolian; Locrian to come) | Voicing (Root, 1st, 2nd) |
 | **Pattern** (SEQ) | Length (1 to 64 steps) | Step value (1/8, 1/16, 1/32, 1/8T, 1/16T) | Metronome level | (free) |
 
-SELECT stays the DJ filter. MASTER is volume.
+| **Osc** (ENV) | Wave (sine, triangle, saw, square) | Fold | Detune | Level |
+| **Filter** (ENV) | Cutoff | Reso | Env amount (±) | Key track |
+| **Amp env** (ENV) | Attack | Decay | Sustain | Release |
+| **Filter env** (ENV) | Attack | Decay | Sustain | Release |
+| **Env 1, Env 2** (ENV) | Attack | Decay | Sustain | Release |
+| **LFO 1, LFO 2** (LFO) | Rate | Shape (sine, triangle, saw, square, random) | Target | Depth (±) |
+| **FX** | Echo send | Plate send | Echo time | Feedback |
+
+On Env 1 and Env 2, ALGORITHM picks the target and PRESETS the depth (±). On the LFOs, ALGORITHM syncs the rate to the tempo (Free, 4 bars to 1/16).
+
+Targets: Pitch, Fold, Detune, Cutoff, Reso, Level, Amp attack, Amp decay, Amp release, Echo send.
+
+Each sound page draws what it sets: the wave, the filter's curve, the envelope, the LFO, the echo's repeats.
+
+MASTER is volume. SELECT isn't used yet.
 
 ## Live recording (playing, REC on)
 
@@ -73,3 +90,4 @@ SELECT stays the DJ filter. MASTER is volume.
 * Saving patterns (the key and tempo are saved; the pattern isn't yet).
 * Following the Digitakt's clock.
 * Locrian, step locks for level, filter and echo send.
+* Saving the sound settings (they go in with pattern saving).

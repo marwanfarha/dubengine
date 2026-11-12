@@ -722,7 +722,7 @@ volatile uint32_t en_prof[EN_PROF_N];
 #endif
 
 /* ------------------------------------------------------------ commands --- */
-enum { C_SET, C_POOL, C_PLAY, C_NEXT, C_FREEZE, C_SEED, C_PANIC, C_CLOCK, C_REGROW, C_MUTE, C_PERF, C_FX, C_PINGS, C_MACRO, C_PROT, C_REWALK, C_PNUDGE, C_LOCK, C_OUTRO, C_SIREN, C_SIRSET, C_TRANS, C_KEY, C_VOICING, C_SEQ, C_STEP };
+enum { C_SET, C_POOL, C_PLAY, C_NEXT, C_FREEZE, C_SEED, C_PANIC, C_CLOCK, C_REGROW, C_MUTE, C_PERF, C_FX, C_PINGS, C_MACRO, C_PROT, C_REWALK, C_PNUDGE, C_LOCK, C_OUTRO, C_SIREN, C_SIRSET, C_TRANS, C_KEY, C_VOICING, C_SEQ, C_STEP, C_SYN };
 #define QN 512u                                 /* (a piece is every parameter at once: room for twice over and more) */
 _Static_assert(QN >= 2u * (P_NPARAMS + 8), "the command queue can't hold a piece's parameters twice over");
 static uint32_t q[QN];
@@ -1964,6 +1964,8 @@ EN_COLD static int scale_list(int *s)              /* the scale's notes, semiton
             s[m++] = i;
     return m;
 }
+static void syn_trig(void);                      /* (de_synth.c) */
+static void syn_cmd(int p, int v);
 EN_COLD static int chord_voice(int note, int voicing)   /* the triad on note, voiced, struck: 0 if not in the scale */
 {
     int s[12], m = scale_list(s), rel, d, i, t[3], v[3];
@@ -1991,6 +1993,8 @@ EN_COLD static int chord_voice(int note, int voicing)   /* the triad on note, vo
                          : t[1] == 4 && t[2] == 8 ? EN_Q_AUG : EN_Q_OTHER);
     en_now_n++;
     stab_fire(0.9f, 0);
+    if (!en_gen_on)
+        syn_trig();
     return 1;
 }
 
@@ -5054,6 +5058,9 @@ EN_COLD static void drain(void)
         case C_SEQ:
             seq_cmd(a, b);
             break;
+        case C_SYN:
+            syn_cmd(a, b);
+            break;
         case C_STEP:
             if (a < EN_SEQ_MAX) {
                 volatile en_step_t *t = &en_seq[a];
@@ -5446,6 +5453,8 @@ static void render_stabs(uint32_t n)
         en_pad_amp[i] = amp;
     }
 }
+
+#include "de_synth.c"                           /* (dubengine: the chord's synth) */
 
 static void render_bass(uint32_t n)
 {
@@ -6583,7 +6592,7 @@ static void render_chunk(int32_t *out, uint32_t n, float gain)
     }
     {   /* (a layer's own part of the dry mix: what its render adds; the bass, the kick and the noise their own) */
         const int tl = en_view_layer, mo = en_meter_on;
-        { PROF_B(p3); render_stabs(n); PROF_E(3, p3); }
+        { PROF_B(p3); if (en_gen_on) render_stabs(n); else render_synth(n); PROF_E(3, p3); }
         if (mo)                                  /* (the meters: the mix is the chord's alone here) */
             mpk[EN_MT_CHORD] = mt_pk(mixl, mixr, n), mt_snap(n);
         if (tl == 1)

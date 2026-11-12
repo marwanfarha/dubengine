@@ -41,10 +41,16 @@ A chord sequencer for the FM1. You pick a key, play one key per chord, and recor
 * **Evolve:** how much the pattern changes by itself each time it loops. 0 means it stays fixed.
 * Randomise can be undone once, back to the pattern before.
 
-## 5. Sound (kept from DUB 1)
+## 5. Sound
 
-* The chord voice.
-* Resonant low pass filter.
+* **Osc:** each of the chord's voices two oscillators, detuned: sine, triangle, saw or square. A wavefolder after them.
+* **Filter:** one resonant low pass for the chord: cutoff, reso, envelope amount, key track.
+* **Envelopes:** ADSR for the amp, for the filter, and two more (Env 1, Env 2) to any target.
+* **LFOs:** two, sine, triangle, saw, square or random; free or synced to the tempo; to any target.
+* **Targets:** pitch, fold, detune, cutoff, reso, level, amp attack, decay and release, echo send.
+
+## 5a. Kept from DUB 1
+
 * Tape echo (feedback, hold).
 * Plate reverb.
 * FM pings: kept in the code, off by default, to switch on later.

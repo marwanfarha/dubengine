@@ -30,6 +30,8 @@ run keys sh -c "$CC -O2 -ffp-contract=off -std=c99 -Wall -Wextra -Wdouble-promot
     -o $OUT/keys_test tests/host/keys_test.c firmware/src/dsp/amb.c -lm && $OUT/keys_test"
 run seq sh -c "$CC -O2 -ffp-contract=off -std=c99 -Wall -Wextra -Wdouble-promotion -Werror -DEN_HOST -Ifirmware/src/dsp \
     -o $OUT/seq_test tests/host/seq_test.c firmware/src/dsp/amb.c -lm && $OUT/seq_test"
+run synth sh -c "$CC -O2 -ffp-contract=off -std=c99 -Wall -Wextra -Wdouble-promotion -Werror -DEN_HOST -Ifirmware/src/dsp \
+    -o $OUT/synth_test tests/host/synth_test.c firmware/src/dsp/amb.c -lm && $OUT/synth_test"
 run storage sh -c "$CC -O2 -o $OUT/storage_test tests/storage_test.c && $OUT/storage_test"
 # the update path, against the firmware package (Felucca's tests; needs ./build.sh)
 if [ -f build/amb.fwsc ]; then

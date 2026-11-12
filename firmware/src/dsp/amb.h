@@ -237,6 +237,40 @@ void en_seq_step(int i, const en_step_t *st);    /* step i set (st->on 0: emptie
 void en_metro(int on, int level);                /* on 0/1, level 0..100 */
 int en_seq_note(const en_step_t *st);            /* a step's root as a MIDI note, in the key now */
 int en_note_step(int note, en_step_t *st);       /* a key's note as a step's degree and octave: 0 if not in the scale */
+
+/* dubengine: the chord's synth (de_synth.c), while DUB-1's layers are off. Each of the four voices two oscillators,
+ * detuned; a wavefolder; one resonant low-pass for the chord; the amp. Four ADSR envelopes (the amp's, the filter's,
+ * Env 1, Env 2) and two LFOs; Env 1, Env 2 and the LFOs each to a target (EN_MD_*) by a depth. Parameters: en_syn[],
+ * set by en_syn_set (values as SYN_INFO's ranges) */
+enum { EN_WAVE_SINE, EN_WAVE_TRI, EN_WAVE_SAW, EN_WAVE_SQUARE, EN_NWAVE };
+enum { EN_LS_SINE, EN_LS_TRI, EN_LS_SAW, EN_LS_SQUARE, EN_LS_RANDOM, EN_NLSHAPE };
+enum { EN_MD_NONE, EN_MD_PITCH, EN_MD_FOLD, EN_MD_DETUNE, EN_MD_CUTOFF, EN_MD_RESO, EN_MD_LEVEL, EN_MD_AATT, EN_MD_ADEC,
+       EN_MD_AREL, EN_MD_ECHO, EN_NMD };
+enum {
+    SY_WAVE, SY_FOLD, SY_DETUNE, SY_LEVEL,                 /* Osc */
+    SY_CUT, SY_RESO, SY_FENV, SY_KTRK,                     /* Filter: cutoff, resonance, the filter env's amount, key track */
+    SY_AA, SY_AD, SY_AS, SY_AR,                            /* Amp env */
+    SY_FA, SY_FD, SY_FS, SY_FR,                            /* Filter env */
+    SY_1A, SY_1D, SY_1S, SY_1R, SY_1DST, SY_1AMT,          /* Env 1 */
+    SY_2A, SY_2D, SY_2S, SY_2R, SY_2DST, SY_2AMT,          /* Env 2 */
+    SY_L1RATE, SY_L1SHAPE, SY_L1DST, SY_L1AMT, SY_L1SYNC,  /* LFO 1 */
+    SY_L2RATE, SY_L2SHAPE, SY_L2DST, SY_L2AMT, SY_L2SYNC,  /* LFO 2 */
+    SY_ECHO, SY_PLATE,                                     /* the sends */
+    SY_N
+};
+typedef struct {
+    const char *name;
+    int16_t lo, hi, def;
+} en_syn_info_t;
+extern const en_syn_info_t SYN_INFO[SY_N];
+extern const char *const EN_WAVE_NAME[EN_NWAVE];
+extern const char *const EN_LS_NAME[EN_NLSHAPE];
+extern const char *const EN_MD_NAME[EN_NMD];
+#define EN_NSYNC 8                                 /* an LFO's sync: Free, then 4 bars .. 1/16 */
+extern const char *const EN_SYNC_NAME[EN_NSYNC];
+extern volatile int16_t en_syn[SY_N];
+void en_syn_set(int p, int v);
+extern volatile float en_syn_amp;                  /* (UI, tests) the amp envelope now, 0..1 */
 void en_next(void);                            /* the next chord: on the next bar (now while resting) */
 void en_freeze(int on);
 void en_seed(uint32_t s);                      /* stir some entropy into the generators */

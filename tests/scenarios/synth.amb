@@ -1,0 +1,55 @@
+# dubengine: the synth's pages. ENV steps through Osc, Filter, Amp env, Filter env, Env 1, Env 2; LFO through LFO 1
+# and 2; FX the sends and the echo. Each page's picture
+wav synth.wav
+wait 500
+tap ENV
+wait 100
+# Osc: the wave from Saw (2) to Square (3); Fold up
+expect syn0 2
+spin K1 1
+expect syn0 3
+spin K2 20
+expect syn1 40
+key 7 down
+wait 600
+shot osc.png
+key 7 up
+tap ENV
+wait 100
+shot filter.png
+tap ENV
+wait 100
+# Amp env: a slower attack
+spin K1 10
+expect syn8 24
+wait 100
+shot ampenv.png
+tap ENV
+tap ENV
+wait 100
+# Env 1: to Cutoff (ALGORITHM), depth +40 (PRESETS)
+spin ALGO 4
+expect syn20 4
+spin PRESET 20
+expect syn21 40
+wait 100
+shot env1.png
+tap LFO
+wait 100
+# LFO 1: Shape Triangle, to Fold, synced to a bar
+spin K2 1
+expect syn29 1
+spin K3 2
+expect syn30 2
+spin K4 25
+expect syn31 50
+spin ALGO 3
+expect syn32 3
+key 7 down
+wait 1500
+shot lfo1.png
+key 7 up
+tap FX
+wait 100
+shot fx.png
+wavstop
