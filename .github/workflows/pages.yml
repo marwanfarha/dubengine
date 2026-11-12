@@ -1,0 +1,47 @@
+# Every push to main: build the browser emulator and publish it with GitHub Pages, so it can be played
+# from a link (https://<owner>.github.io/dubengine/). Turn Pages on once: Settings > Pages > Source: GitHub Actions.
+name: emulator site
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Tools (clang's wasm target, WASI libc, the screen font's libraries)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq clang-18 lld-18 wasi-libc libclang-rt-18-dev-wasm32 libfribidi0 libraqm0
+      - run: pip install pillow
+      - name: Build the emulator
+        run: CLANG=clang-18 EN_VERSION="${GITHUB_SHA::7}" sh web/emu/build_clang.sh
+      - name: Check it plays
+        run: node tests/host/emu_test.mjs build/emu/amb.wasm
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/emu
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
