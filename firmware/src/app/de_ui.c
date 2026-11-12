@@ -671,7 +671,8 @@ static float de_dtime_s(void)                    /* the delay's time, s */
 #define PX 8                                     /* the picture's box */
 #define PY 22
 #define PW 224
-#define PH 96
+static int de_ph = 96;                           /* (96; 84 when the extras' line sits under it) */
+#define PH de_ph
 static void de_pic_osc(void)                     /* the two oscillators as they sound: detuned, folded, modulated now */
 {
     float v[113], det = en_det_now, fold = en_fold_now, beat;
@@ -702,7 +703,8 @@ static void de_pic_filter(void)                  /* the response, 20 Hz .. 20 kH
     for (i = 0; i < 3; i++) {
         const int x = PX + (int)((float)PW * fm_log2f(TICK[i] / 20.0f) / 9.966f);
         cv_rect(x, PY, 1, PH, DE_GRID);
-        cv_text(x + 2, PY + PH - 12, &FONT_T_XS, TN[i], DE_DIM);
+        if (x + 2 + text_w(&FONT_T_XS, TN[i]) <= PX + PW)
+            cv_text(x + 2, PY + PH - 12, &FONT_T_XS, TN[i], DE_DIM);
     }
     cv_rect(PX, PY + 20, PW, 1, DE_GRID);         /* (0 dB) */
     for (i = 0; i <= PW; i++) {
@@ -886,6 +888,7 @@ static void de_draw_main(void)
             }
             cv_text(8, 0, &FONT_T_B, b, DE_FG);
         }
+        de_ph = (de_kid(de.page, 4) >= 0 || de_kid(de.page, 5) >= 0 || de.page == DE_DELAY) ? 84 : 96;
         switch (de.page) {
         case DE_OSC: de_pic_osc(); break;
         case DE_FILT: de_pic_filter(); break;
