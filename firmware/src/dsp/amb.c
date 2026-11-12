@@ -3540,11 +3540,26 @@ EN_COLD static void tick(void)
 #define PRE_N_DUB 662                                /* DUB-1's: 30 ms */
 #define EXC DS(16)
 enum { L_PRE, L_IN1, L_IN2, L_IN3, L_IN4, L_APL, L_D1L, L_AP2L, L_D2L, L_APR, L_D1R, L_AP2R, L_D2R, L_N };
-static const int DL_LEN[L_N] = {PRE_N, DS(142), DS(107), DS(379), DS(277), DS(672) + EXC + 2, DS(4453), DS(1800),
+static const int DL_LEN[L_N] = {1, DS(142), DS(107), DS(379), DS(277), DS(672) + EXC + 2, DS(4453), DS(1800),
                                 DS(3720), DS(908) + EXC + 2, DS(4217), DS(2656), DS(3163)};
-#define DL_TOTAL (PRE_N + DS(142) + DS(107) + DS(379) + DS(277) + DS(672) + DS(4453) + DS(1800) + DS(3720) + DS(908) + \
+#define DL_TOTAL (1 + DS(142) + DS(107) + DS(379) + DS(277) + DS(672) + DS(4453) + DS(1800) + DS(3720) + DS(908) + \
                   DS(4217) + DS(2656) + DS(3163) + 2 * (EXC + 2))
 static float pl_buf[DL_TOTAL] EN_POOL;
+/* (dubengine: the pre-delay its own line, int16 at 1/16384 (+-2), so 100 ms fits the pool's headroom) */
+static int16_t pre_buf[PRE_N] EN_POOL;
+static int pre_i;
+static inline void pre_push(float x)
+{
+    float v = x * 16384.0f;
+    pre_buf[pre_i] = (int16_t)(v > 32767.0f ? 32767.0f : v < -32767.0f ? -32767.0f : v);
+    if (++pre_i >= PRE_N)
+        pre_i = 0;
+}
+static inline float pre_tap(int k)
+{
+    int j = pre_i - k;
+    return (float)pre_buf[j < 0 ? j + PRE_N : j] * (1.0f / 16384.0f);
+}
 typedef struct {
     float *b;
     int n, i;
@@ -3594,8 +3609,8 @@ static inline void reverb(float in, float *ol, float *or_)
                 mr = dub ? 0.0002f : de_rv_mr;
 #define SZ(n) ((int)((float)DS(n) * sz))
     float x, a, b, fb_l = tap(&dl[L_D2R], SZ(3163)), fb_r = tap(&dl[L_D2L], SZ(3720));
-    push(&dl[L_PRE], in);
-    x = tap(&dl[L_PRE], dub ? PRE_N_DUB : de_pre_n());
+    pre_push(in);
+    x = pre_tap(dub ? PRE_N_DUB : de_pre_n());
     pl_bw += 0.84f * (x - pl_bw);                /* (0.6 at the full rate) */
     x = allpass(&dl[L_IN1], DS(142), pl_bw, fm_minf(0.75f * df, 0.9f));
     x = allpass(&dl[L_IN2], DS(107), x, fm_minf(0.75f * df, 0.9f));
@@ -3639,6 +3654,9 @@ EN_COLD static void plate_init(void)
     }
     for (i = 0; i < DL_TOTAL; i++)
         pl_buf[i] = 0.0f;
+    for (i = 0; i < PRE_N; i++)
+        pre_buf[i] = 0;
+    pre_i = 0;
     pl_bw = pl_damp_l = pl_damp_r = 0.0f;
     lfo_s = 0.0f;
     lfo_c = 1.0f;
