@@ -54,7 +54,7 @@ Works from the stock firmware or DUB 1.
 | REC | Playing: live recording on or off. Stopped: step edit on or off. | |
 | SEL | Metronome on or off. | |
 | HOME | Play page. Again: the other track. | |
-| SEQ | Pattern page. | 1.5 s: clear the pattern. Again within 5 s: bring it back. With a white key: pattern slots. |
+| SEQ | Pattern page. | 2.5 s: clear the pattern (a countdown shows). Again within 5 s: bring it back. With a white key: pattern slots. |
 | ENV | Osc, Filter, Amp env, Filter env, Env 1, Env 2, in turn. | With a white key: sound slots. |
 | LFO | LFO 1, LFO 2. | |
 | FX | Delay, Delay 2, Reverb, Reverb 2, in turn. | |

@@ -6,7 +6,7 @@
  *   REC         playing: live recording on / off; stopped: step edit on / off (in step edit: off)
  *   SEL         the metronome on / off
  *   HOME        the Play page: Tempo, Root, Mode, Voicing; again: the other track (A, B)
- *   SEQ         the Pattern page: Length, Step, Click level; held 1.5 s: clear (held again within 5 s: back)
+ *   SEQ         the Pattern page: Length, Step, Click level; held 2.5 s: clear (held again within 5 s: back)
  *   GLO held    save
  *   OCT- / +    the keys' octave; in step edit, the page of 16 steps
  *   keys        lit (in the scale): their chords; in step edit the white keys are the steps: a tap puts the last
@@ -58,8 +58,8 @@ static int de_kid(int pg, int i)                 /* a sound page's control i: th
     }
     return DE_KNOBS[pg][i];
 }
-#define DE_HOLD_MS 1500u                         /* SEQ held: clear */
-#define DE_UNDO_MS 5000u                         /* (then SEQ held again: back) */
+#define DE_HOLD_MS 2500u                         /* SEQ held: clear (counted down from 1 s: it is the slots' button too) */
+#define DE_UNDO_MS 8000u                         /* (then SEQ held again, begun within 5 s: back) */
 #define DE_SAVE_MS 1000u                         /* GLO held: save */
 #define DE_MSG_MS 1600u
 static const uint8_t DE_WHITE[16] = {0, 2, 4, 6, 7, 9, 11, 12, 14, 16, 18, 19, 21, 23, 24, 26};
@@ -424,7 +424,14 @@ static void de_hold(int b, uint32_t ms)          /* held this long: SEQ clears (
 {
     if (de.held_done[b])
         return;
-    if (b == B_SEQ && ms >= DE_HOLD_MS) {
+    if (b == B_SEQ && ms >= 1000u && ms < DE_HOLD_MS && !(de.cleared_t && plat_ms() - de.cleared_t < DE_UNDO_MS)) {
+        static uint32_t shown;
+        const uint32_t left = (DE_HOLD_MS - ms + 749u) / 750u;
+        if (left != shown || ms < 1030u) {
+            shown = left;
+            de_say(left > 1u ? "HOLD TO CLEAR  2" : "HOLD TO CLEAR  1");
+        }
+    } else if (b == B_SEQ && ms >= DE_HOLD_MS) {
         const uint32_t now = plat_ms();
         de.held_done[b] = 1;
         if (de.cleared_t && now - de.cleared_t < DE_UNDO_MS) {

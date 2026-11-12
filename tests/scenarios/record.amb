@@ -69,12 +69,12 @@ wait 100
 expect seqon 2
 # SEQ held: cleared; held again within 5 s: back
 press SEQ
-wait 1700
+wait 2700
 release SEQ
 wait 100
 expect seqon 0
 press SEQ
-wait 1700
+wait 2700
 release SEQ
 wait 100
 expect seqon 2

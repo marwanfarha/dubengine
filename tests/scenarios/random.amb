@@ -45,7 +45,7 @@ expect page 16
 expect writes >0
 # cleared by hand (SEQ held), then slot 3 taken: back
 press SEQ
-wait 1700
+wait 2700
 release SEQ
 wait 200
 expect seqon 0
