@@ -12,6 +12,7 @@ A chord sequencer for the FM1. You pick a key, play one key per chord, and recor
 
 * One key plays one triad, built from the scale (diatonic). In C minor: C = Cm, D = D dim, Eb = Eb, F = Fm, G = Gm, Ab = Ab, Bb = Bb.
 * The chord sounds for as long as the key is held.
+* **Voicing** (global setting): Root position, 1st inversion, 2nd inversion, or Smooth (the inversion closest to the previous chord). Default: 1st inversion.
 * One chord at a time: a new chord replaces the one playing.
 
 ## 3. Tempo and metronome
@@ -25,6 +26,7 @@ A chord sequencer for the FM1. You pick a key, play one key per chord, and recor
 * Step value: 1/16 by default. Options: 1/8, 1/16, 1/32, 1/8 triplet, 1/16 triplet.
 * **Live recording:** arm, play along to the metronome. Chords snap to the nearest step. Their length is recorded in steps, from how long you held the key.
 * **Step entry:** select a step, press a key to place a chord there, or clear it.
+* **Step locks** (like Elektron parameter locks): hold a step and turn a knob to change that step only. Lockable per step: voicing, octave, level, filter cutoff, echo send. Unlocked steps use the global settings.
 * Clear pattern.
 * Patterns are saved to flash.
 
@@ -58,7 +60,7 @@ A chord sequencer for the FM1. You pick a key, play one key per chord, and recor
 2. Strip the generative parts. Keep chord voice, filter, echo, reverb.
 3. Key: root, mode, key lights, out of scale keys ignored.
 4. Tempo, metronome, MIDI clock in.
-5. Sequencer: length, step value, live recording, step entry, clear.
+5. Sequencer: length, step value, live recording, step entry, step locks, clear.
 6. Randomise and Evolve.
 7. Saving patterns.
 
@@ -67,5 +69,4 @@ Each step: tests and simulator pass, then the emulator, then the hardware.
 ## Open questions
 
 * Which buttons and knobs do what (layout to be proposed after reading DUB 1's panel code).
-* Chord voicing: root position, or closest voicing to the previous chord for smoother movement.
 * 7th and 9th chords as an option later.
