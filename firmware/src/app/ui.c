@@ -542,7 +542,8 @@ static void card_show(const char *head, const char *text, uint16_t col, int big)
 }
 /* something did not happen: a screen reader says it whole (what follows does not cut it off) */
 static void warn(const char *a, const char *b) { say_as(a, b, ANN_NOW | ANN_KEEP); }
-void ui_say(const char *a, const char *b) { say(a, b); }
+static void de_say2(const char *a, const char *b);   /* (de_ui.c: the same message on dubengine's screen) */
+void ui_say(const char *a, const char *b) { say(a, b); de_say2(a, b); }
 
 static void itoa_u(uint32_t v, char *b)
 {

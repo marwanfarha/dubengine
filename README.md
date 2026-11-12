@@ -31,7 +31,9 @@ Works from the stock firmware or DUB 1. Your saved pattern and sound live in the
 
 **Going back:** "Back to the stock firmware" at the bottom of the installer page, or M VAVE's own updater, M UPGRADE.
 
-**If it ever won't start:** hold OCT− and OCT+ for 5 seconds at power on for update mode, then run the installer again.
+**Update mode by hand:** hold OCT− and OCT+ together for 5 seconds. A countdown shows; let go to cancel.
+
+**If it ever won't start:** after two failed starts it comes up in SAFE MODE, which the installer can still reach. Last resort: the [Mac rescue script](https://sbegueria.github.io/fm1-dub/manual/#recovering-an-fm-1-that-won-t-start).
 
 ## How to use it
 

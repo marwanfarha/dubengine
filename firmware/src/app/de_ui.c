@@ -112,6 +112,19 @@ static void de_say(const char *s)
     de.msg[i] = 0;
     de.msg_t = plat_ms();
 }
+static void de_say2(const char *a, const char *b)   /* (main_fm1.c's messages, "UPDATE MODE IN 3..", through ui_say) */
+{
+    char t[sizeof de.msg];
+    uint32_t i = 0, j;
+    for (j = 0; a && a[j] && i < sizeof t - 1u; j++)
+        t[i++] = a[j];
+    if (b && b[0] && i < sizeof t - 1u)
+        t[i++] = ' ';
+    for (j = 0; b && b[j] && i < sizeof t - 1u; j++)
+        t[i++] = b[j];
+    t[i] = 0;
+    de_say(t);
+}
 static void de_chord_name(const en_step_t *st, char *b)   /* "Cm", "Ddim", "Eb" */
 {
     int s[12], m = 0, i, pc, t1, t2, q;
