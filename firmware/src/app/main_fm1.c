@@ -265,7 +265,10 @@ static void fm1_main(void)
     uint32_t last_frame = 0;
     {
         uint32_t f = irq_save();
-        flash_ok = FL_FAR(fl_jedec_ram)() == 0x856014u;   /* the expected 1 MiB part, else RAM only */
+        uint32_t flash_id = FL_FAR(fl_jedec_ram)();
+        flash_ok = flash_id == 0x856014u || flash_id == 0xB36014u;   /* the two known 1 MiB parts (newer FM1s:
+                                                                       * UC25HQ80, 0xB36014, as Felucca 1.8.2 and
+                                                                       * JIANT V10.6z), else RAM only */
         irq_restore(f);
         if (flash_ok)
             ota_boot_cleanup();

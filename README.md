@@ -40,7 +40,7 @@ python tools/fm1_install.py amb.fwsc
 1. **Test first.** Every change goes through `./dev.sh check` and the emulator before it goes near the hardware.
 2. **Keep the stock firmware.** Download FM1 V15 ("PC Firmware") from m-vave.com/download and keep it.
 3. **Never touch the bootloader or the update loader** (`firmware/loader/`, the package layout in `tools/fm1pkg_make.py`). We only change the app.
-4. **Flash chip.** This code only saves on the original flash chip (`0x856014`, see `firmware/src/app/main_fm1.c`). Newer FM1s with chip `0xB36014` run but can't save. Supporting both chips is our first job.
+4. **Flash chip.** Both FM1 flash chips are accepted (`0x856014`, and `0xB36014` on newer units), the same fix as Felucca 1.8.2 and JIANT. Check saves survive a power cycle after your first install.
 5. **Recovery, in order:**
    * Won't start: hold OCT minus while switching on, then install V15 or any firmware over USB.
    * PC only shows a USB disk "WL82 UBOOT1.00": the ROM bootloader can't be erased by an update. Use [M Flasher](https://github.com/jvitkauskas/m-flasher) or [MvaveFM1Unbricker](https://github.com/Quixotic7/MvaveFM1Unbricker).
